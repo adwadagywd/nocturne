@@ -1,6 +1,7 @@
 package dev.nocturne.module.impl;
 
 import dev.nocturne.module.*;
+import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
