@@ -25,6 +25,7 @@ public final class ConfigManager {
         for (Module m : ModuleManager.ALL) {
             Map<String, Object> o = new LinkedHashMap<>();
             o.put("_enabled", m.isEnabled());
+            o.put("_key", m.key);
             for (Setting<?> s : m.settings) o.put(s.name, s.save());
             root.put(m.name, o);
         }
@@ -43,6 +44,7 @@ public final class ConfigManager {
                 if (o == null) continue;
                 for (Setting<?> s : m.settings)
                     if (o.containsKey(s.name)) { try { s.load(o.get(s.name)); } catch (Exception ignored) {} }
+                if (o.get("_key") instanceof Number kn) m.key = kn.intValue();
                 if (m.persistEnabled() && o.get("_enabled") instanceof Boolean b) m.setEnabled(b);
             }
         } catch (Exception ignored) {}

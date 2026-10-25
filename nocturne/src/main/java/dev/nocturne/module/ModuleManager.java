@@ -2,6 +2,9 @@ package dev.nocturne.module;
 
 import dev.nocturne.module.impl.*;
 
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.InputUtil;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +31,18 @@ public final class ModuleManager {
         ALL.add(new TargetHud());
         ALL.add(HUD);
         HUD.setEnabled(true);
+    }
+
+    /** called every frame: toggles modules whose bound key was just pressed */
+    public static void pollBinds() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        long h = mc.getWindow().getHandle();
+        for (Module m : ALL) {
+            if (m.key < 0) { m.keyDown = false; continue; }
+            boolean down = InputUtil.isKeyPressed(h, m.key);
+            if (down && !m.keyDown && mc.currentScreen == null) m.toggle();
+            m.keyDown = down;
+        }
     }
 
     public static List<Module> byCategory(Category c) {

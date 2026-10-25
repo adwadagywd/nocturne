@@ -40,6 +40,7 @@ public class Nocturne implements ClientModInitializer {
 
         WorldRenderEvents.LAST.register(ctx -> {
             RenderUtil.capture(ctx);
+            ModuleManager.pollBinds();
             for (Module m : ModuleManager.ALL) {
                 if (!m.isEnabled()) continue;
                 m.onFrame();

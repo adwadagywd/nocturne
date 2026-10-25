@@ -8,6 +8,7 @@ import dev.nocturne.setting.*;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
@@ -38,6 +39,7 @@ public class ClickGui extends Screen {
     private Slidable dragSlider;
     private int dragX, dragW = 1;
     private BlockListSetting searchFocus;
+    private Module bindingModule;
 
     public ClickGui() { super(Text.literal("Nocturne")); }
 
@@ -80,6 +82,11 @@ public class ClickGui extends Screen {
         String path = i >= 0 ? id.substring(i + 1) : id;
         String ns = (i >= 0 && !id.startsWith("minecraft:")) ? id.substring(0, i) + ":" : "";
         return ns + path.replace('_', ' ');
+    }
+
+    private static String keyName(int key) {
+        String s = InputUtil.fromKeyCode(key, 0).getLocalizedText().getString();
+        return s.length() > 6 ? s.substring(0, 6) : s;
     }
 
     private void chip(DrawContext ctx, TextRenderer tr, String label, int x, int y, int w, boolean act, int mx, int my, Runnable r) {
@@ -206,10 +213,15 @@ public class ClickGui extends Screen {
                         int dc = m.expanded ? Theme.accent() : Theme.DIM;
                         for (int i = 0; i < 3; i++) Draw.rect(ctx, rx + rw - 14 + i * 4, cy + 8, 2, 2, dc);
                     }
+                    String kl = bindingModule == m ? "[...]" : (m.key >= 0 ? "[" + keyName(m.key) + "]" : null);
+                    if (kl != null)
+                        Draw.text(ctx, tr, kl, rx + rw - (m.settings.isEmpty() ? 6 : 18) - tr.getWidth(kl), cy + 5,
+                                bindingModule == m ? Theme.accent() : Theme.DIM, false);
                     if (live && cy + ROW <= bodyEnd)
                         hits.add(new Hit(rx, cy, rw, ROW, (b, hx, hy) -> {
                             if (b == 0) m.toggle();
                             else if (b == 1) m.expanded = !m.expanded;
+                            else if (b == 2) bindingModule = m;
                         }));
                     cy += ROW;
 
@@ -234,7 +246,7 @@ public class ClickGui extends Screen {
         contentBottom = bottom;
 
         Draw.alpha = master * clamp01(tOpen / 0.4f);
-        String hint = "LMB toggle    RMB settings    drag headers    scroll to move";
+        String hint = "LMB toggle    RMB settings    MMB bind key    drag headers    scroll";
         Draw.text(ctx, tr, hint, (width - tr.getWidth(hint)) / 2, height - 14, Theme.DIM, false);
         if (hovered != null && !closing) ctx.drawTooltip(tr, Text.literal(hovered.description), mx, my);
         Draw.alpha = 1f;
@@ -330,6 +342,7 @@ public class ClickGui extends Screen {
     public boolean mouseClicked(double mx, double my, int button) {
         if (closing) return true;
         searchFocus = null;
+        bindingModule = null;
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
             if (in((int) mx, (int) my, h.x, h.y, h.w, h.h)) { h.click.on(button, (int) mx, (int) my); return true; }
@@ -373,6 +386,13 @@ public class ClickGui extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (bindingModule != null) {
+            if (key == GLFW.GLFW_KEY_RIGHT_SHIFT) return true; // reserved for the GUI
+            if (key == GLFW.GLFW_KEY_BACKSPACE || key == GLFW.GLFW_KEY_DELETE) bindingModule.key = -1;
+            else if (key != GLFW.GLFW_KEY_ESCAPE) bindingModule.key = key;
+            bindingModule = null;
+            return true;
+        }
         if (searchFocus != null) {
             if (key == GLFW.GLFW_KEY_BACKSPACE && !searchFocus.query.isEmpty())
                 searchFocus.setQuery(searchFocus.query.substring(0, searchFocus.query.length() - 1));

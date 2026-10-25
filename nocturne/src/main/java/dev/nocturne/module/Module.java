@@ -13,6 +13,9 @@ public abstract class Module {
     public final Category category;
     public final List<Setting<?>> settings = new ArrayList<>();
     public boolean expanded;
+    /** GLFW key code, -1 = unbound */
+    public int key = -1;
+    public boolean keyDown;
     private boolean enabled;
 
     protected Module(String name, String description, Category category) {
