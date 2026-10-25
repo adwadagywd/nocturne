@@ -19,6 +19,7 @@ public final class ModuleManager {
         ALL.add(new AimAssist());
         ALL.add(new TriggerBot());
         ALL.add(new KillAura());
+        ALL.add(new FakePlayer());
         // render
         ALL.add(new Tracers());
         ALL.add(new Esp());
