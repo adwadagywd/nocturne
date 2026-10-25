@@ -32,6 +32,12 @@ public abstract class Module {
     protected void onEnable() {}
     protected void onDisable() {}
     public void onTick(MinecraftClient mc) {}
+    /** runs at the START of every client tick (before the player ticks) */
+    public void onPreTick(MinecraftClient mc) {}
+    /** runs every rendered frame (use for smooth rotation / camera movement) */
+    public void onFrame() {}
+    /** false = module is never auto-enabled from the saved config */
+    public boolean persistEnabled() { return true; }
     public void onRender3d() {}
     public void onRenderHud(DrawContext ctx) {}
 }

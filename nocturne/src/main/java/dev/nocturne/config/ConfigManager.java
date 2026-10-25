@@ -43,7 +43,7 @@ public final class ConfigManager {
                 if (o == null) continue;
                 for (Setting<?> s : m.settings)
                     if (o.containsKey(s.name)) { try { s.load(o.get(s.name)); } catch (Exception ignored) {} }
-                if (o.get("_enabled") instanceof Boolean b) m.setEnabled(b);
+                if (m.persistEnabled() && o.get("_enabled") instanceof Boolean b) m.setEnabled(b);
             }
         } catch (Exception ignored) {}
     }

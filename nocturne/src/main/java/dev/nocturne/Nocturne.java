@@ -27,6 +27,11 @@ public class Nocturne implements ClientModInitializer {
         guiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.nocturne.gui", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.nocturne"));
 
+        ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+            if (mc.player == null || mc.world == null) return;
+            for (Module m : ModuleManager.ALL) if (m.isEnabled()) m.onPreTick(mc);
+        });
+
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (guiKey.wasPressed()) mc.setScreen(new ClickGui());
             if (mc.player == null || mc.world == null) return;
@@ -35,7 +40,11 @@ public class Nocturne implements ClientModInitializer {
 
         WorldRenderEvents.LAST.register(ctx -> {
             RenderUtil.capture(ctx);
-            for (Module m : ModuleManager.ALL) if (m.isEnabled()) m.onRender3d();
+            for (Module m : ModuleManager.ALL) {
+                if (!m.isEnabled()) continue;
+                m.onFrame();
+                m.onRender3d();
+            }
         });
 
         HudRenderCallback.EVENT.register((ctx, tick) -> {

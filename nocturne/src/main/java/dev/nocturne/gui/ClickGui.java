@@ -37,6 +37,7 @@ public class ClickGui extends Screen {
     private int dragOx, dragOy;
     private Slidable dragSlider;
     private int dragX, dragW = 1;
+    private BlockListSetting searchFocus;
 
     public ClickGui() { super(Text.literal("Nocturne")); }
 
@@ -69,7 +70,24 @@ public class ClickGui extends Screen {
         return anims.getOrDefault(System.identityHashCode(key) + tag, def);
     }
 
-    private static int rowH(Setting<?> s) { return s instanceof Slidable ? H_SLIDER : H_SMALL; }
+    private static int rowH(Setting<?> s) {
+        if (s instanceof BlockListSetting b) return b.height();
+        return s instanceof Slidable ? H_SLIDER : H_SMALL;
+    }
+
+    private static String pretty(String id) {
+        int i = id.indexOf(':');
+        String path = i >= 0 ? id.substring(i + 1) : id;
+        String ns = (i >= 0 && !id.startsWith("minecraft:")) ? id.substring(0, i) + ":" : "";
+        return ns + path.replace('_', ' ');
+    }
+
+    private void chip(DrawContext ctx, TextRenderer tr, String label, int x, int y, int w, boolean act, int mx, int my, Runnable r) {
+        boolean hv = act && in(mx, my, x, y, w, 14);
+        Draw.round(ctx, x, y, w, 14, 4, hv ? Theme.accentA(0x55) : Theme.accentA(0x25));
+        Draw.text(ctx, tr, label, x + (w - tr.getWidth(label)) / 2, y + 3, hv ? Theme.TEXT : Theme.accent(), false);
+        if (act) hits.add(new Hit(x, y, w, 14, (b, hx, hy) -> { if (b == 0) r.run(); }));
+    }
     private static int settingsH(Module m) {
         int h = 0;
         for (Setting<?> s : m.settings) if (s.visible()) h += rowH(s);
@@ -241,6 +259,47 @@ public class ClickGui extends Screen {
             Draw.round(ctx, x + w - vw - 10, y + 2, vw + 8, 12, 5, Theme.accentA(0x30));
             Draw.text(ctx, tr, v, x + w - vw - 6, y + 4, Theme.accent(), false);
             if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> m.cycle(btn == 1 ? -1 : 1)));
+        } else if (s instanceof BlockListSetting bl) {
+            int cy = y + 3;
+            boolean focused = searchFocus == bl;
+            Draw.round(ctx, x, cy, w, 14, 4, focused ? 0xFF1F1F2A : 0xFF16161D);
+            if (focused) Draw.rect(ctx, x + 3, cy + 13, w - 6, 1, Theme.accent());
+            boolean empty = bl.query.isEmpty();
+            String shown = empty && !focused ? "Search blocks..."
+                    : bl.query + ((focused && (System.currentTimeMillis() / 450) % 2 == 0) ? "_" : "");
+            Draw.text(ctx, tr, tr.trimToWidth(shown, w - 10), x + 5, cy + 3, empty ? Theme.DIM : Theme.TEXT, false);
+            if (act) hits.add(new Hit(x, cy, w, 14, (btn, hx, hy) -> searchFocus = bl));
+            cy += 16;
+
+            List<String> res = bl.results();
+            int n = Math.min(res.size(), BlockListSetting.MAX_RESULTS);
+            for (int i = 0; i < n; i++) {
+                final String id = res.get(i);
+                boolean isSel = bl.has(id);
+                if (act && in(mx, my, x, cy, w, 12)) Draw.round(ctx, x, cy, w, 12, 3, Theme.ROW_HOVER);
+                Draw.text(ctx, tr, tr.trimToWidth((isSel ? "+ " : "  ") + pretty(id), w - 6), x + 4, cy + 2,
+                        isSel ? Theme.accent() : Theme.SOFT, false);
+                if (act) hits.add(new Hit(x, cy, w, 12, (btn, hx, hy) -> bl.toggle(id)));
+                cy += 12;
+            }
+            cy += 2;
+            int bw = (w - 4) / 2;
+            chip(ctx, tr, "All ores", x, cy, bw, act, mx, my, bl::addAllOres);
+            chip(ctx, tr, "Clear", x + bw + 4, cy, bw, act, mx, my, bl::clear);
+            cy += 18;
+
+            List<String> selected = new ArrayList<>(bl.get());
+            int shownN = Math.min(selected.size(), BlockListSetting.MAX_SHOWN);
+            for (int i = 0; i < shownN; i++) {
+                final String id = selected.get(i);
+                boolean hv = act && in(mx, my, x, cy, w, 11);
+                Draw.text(ctx, tr, tr.trimToWidth(pretty(id), w - 16), x + 4, cy + 1, hv ? Theme.TEXT : Theme.accent(), false);
+                Draw.text(ctx, tr, "x", x + w - 9, cy + 1, hv ? 0xFFFF5555 : Theme.DIM, false);
+                if (act) hits.add(new Hit(x, cy, w, 11, (btn, hx, hy) -> bl.toggle(id)));
+                cy += 11;
+            }
+            if (selected.size() > shownN)
+                Draw.text(ctx, tr, "+" + (selected.size() - shownN) + " more", x + 4, cy + 1, Theme.DIM, false);
         } else if (s instanceof Slidable sl) {
             float f = anim(s, "f", (float) sl.fraction(), dragSlider == sl ? 60f : 22f);
             Draw.text(ctx, tr, s.name, x + 2, y + 3, labelCol, false);
@@ -270,6 +329,7 @@ public class ClickGui extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (closing) return true;
+        searchFocus = null;
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
             if (in((int) mx, (int) my, h.x, h.y, h.w, h.h)) { h.click.on(button, (int) mx, (int) my); return true; }
@@ -301,7 +361,25 @@ public class ClickGui extends Screen {
     }
 
     @Override
+    public boolean charTyped(char chr, int modifiers) {
+        if (searchFocus != null) {
+            if (chr == ' ') chr = '_';
+            if (Character.isLetterOrDigit(chr) || chr == '_' || chr == ':')
+                searchFocus.setQuery(searchFocus.query + Character.toLowerCase(chr));
+            return true;
+        }
+        return super.charTyped(chr, modifiers);
+    }
+
+    @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (searchFocus != null) {
+            if (key == GLFW.GLFW_KEY_BACKSPACE && !searchFocus.query.isEmpty())
+                searchFocus.setQuery(searchFocus.query.substring(0, searchFocus.query.length() - 1));
+            else if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER)
+                searchFocus = null;
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_RIGHT_SHIFT) { close(); return true; }
         return super.keyPressed(key, scan, mods);
     }

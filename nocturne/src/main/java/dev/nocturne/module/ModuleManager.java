@@ -11,12 +11,21 @@ public final class ModuleManager {
 
     public static void init() {
         HUD = new HudModule();
+        // combat
         ALL.add(new Hitboxes());
+        ALL.add(new AimAssist());
+        ALL.add(new TriggerBot());
+        // render
         ALL.add(new Tracers());
         ALL.add(new Esp());
         ALL.add(new Nametags());
-        ALL.add(new AutoSprint());
+        ALL.add(new XRay());
         ALL.add(new Fullbright());
+        // movement
+        ALL.add(new AutoSprint());
+        ALL.add(new Freecam());
+        // client
+        ALL.add(new TargetHud());
         ALL.add(HUD);
         HUD.setEnabled(true);
     }
