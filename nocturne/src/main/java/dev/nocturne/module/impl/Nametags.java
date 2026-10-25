@@ -1,5 +1,6 @@
 package dev.nocturne.module.impl;
 
+import dev.nocturne.gui.Draw;
 import dev.nocturne.module.*;
 import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
@@ -26,7 +27,7 @@ public class Nametags extends Module {
     public static Nametags INSTANCE;
 
     private final NumSetting range = add(new NumSetting("Range", 128, 8, 256, 1));
-    private final NumSetting scale = add(new NumSetting("Scale", 1.0, 0.5, 3.0, 0.1));
+    private final NumSetting textSize = add(new NumSetting("Text size", 0.7, 0.3, 2.0, 0.05));
     private final ModeSetting scaling = add(new ModeSetting("Scaling", "Fixed", "Fixed", "Distance"));
     private final BoolSetting health = add(new BoolSetting("Health", true));
     private final BoolSetting distance = add(new BoolSetting("Distance", true));
@@ -35,8 +36,9 @@ public class Nametags extends Module {
     private final BoolSetting durability = add(new BoolSetting("Durability", true));
     private final BoolSetting enchants = add(new BoolSetting("Enchants", true));
     private final ModeSetting enchantNames = add(new ModeSetting("Enchant names", "Short", "Short", "Full"));
-    private final NumSetting enchantScale = add(new NumSetting("Enchant scale", 0.6, 0.4, 1.0, 0.05));
+    private final NumSetting enchantScale = add(new NumSetting("Enchant size", 0.55, 0.3, 1.0, 0.05));
     private final BoolSetting background = add(new BoolSetting("Background", true));
+    private final BoolSetting shadow = add(new BoolSetting("Text shadow", false));
     private final BoolSetting hideVanilla = add(new BoolSetting("Hide vanilla", true));
     private final TargetSettings targets = new TargetSettings(this, true, false, false, false);
 
@@ -73,6 +75,7 @@ public class Nametags extends Module {
     @Override
     public void onRenderHud(DrawContext ctx) {
         if (!RenderUtil.valid) return;
+        Draw.alpha = 1f;
         TextRenderer tr = mc.textRenderer;
         int sw = mc.getWindow().getScaledWidth(), sh = mc.getWindow().getScaledHeight();
 
@@ -90,7 +93,7 @@ public class Nametags extends Module {
     }
 
     private void draw(DrawContext ctx, TextRenderer tr, Entity e, float sx, float sy, float dist) {
-        float sc = scale.getFloat();
+        float sc = textSize.getFloat();
         if (scaling.is("Distance")) sc *= MathHelper.clamp(10f / Math.max(dist, 1f), 0.6f, 1.6f);
 
         String name = e instanceof ItemEntity ie
@@ -113,11 +116,11 @@ public class Nametags extends Module {
         m.scale(sc, sc, 1f);
 
         int x = -w / 2, y = -10;
-        if (background.get()) ctx.fill(x - 2, y - 1, x + w + 2, y + 9, 0x90000000);
-        ctx.drawText(tr, name, x, y, 0xFFFFFFFF, true);
+        if (background.get()) Draw.round(ctx, x - 3, y - 2, w + 6, 11, 3, 0xA00B0B0F);
+        ctx.drawText(tr, name, x, y, 0xFFFFFFFF, shadow.get());
         x += tr.getWidth(name) + 4;
-        if (hp != null) { ctx.drawText(tr, hp, x, y, hpColor, true); x += tr.getWidth(hp) + 4; }
-        if (ds != null) ctx.drawText(tr, ds, x, y, 0xFFAAAAAA, true);
+        if (hp != null) { ctx.drawText(tr, hp, x, y, hpColor, shadow.get()); x += tr.getWidth(hp) + 4; }
+        if (ds != null) ctx.drawText(tr, ds, x, y, 0xFF9A9AA6, shadow.get());
 
         if (e instanceof LivingEntity le) drawGear(ctx, tr, le, y);
         m.pop();
@@ -154,7 +157,7 @@ public class Nametags extends Module {
                 m.scale(es, es, 1f);
                 for (int k = 0; k < lines.size(); k++) {
                     Line ln = lines.get(k);
-                    ctx.drawText(tr, ln.text(), -tr.getWidth(ln.text()) / 2, -(k + 1) * 9, ln.color(), true);
+                    ctx.drawText(tr, ln.text(), -tr.getWidth(ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
                 }
                 m.pop();
             }

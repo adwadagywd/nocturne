@@ -1,6 +1,7 @@
 package dev.nocturne.util;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.nocturne.module.ModuleManager;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
@@ -11,10 +12,14 @@ import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 public final class RenderUtil {
-    public static final Matrix4f view = new Matrix4f(), proj = new Matrix4f(), viewProj = new Matrix4f();
+    public static final Matrix4f view = new Matrix4f(), proj = new Matrix4f(), viewProj = new Matrix4f(), invViewProj = new Matrix4f();
+    public static final Matrix4f IDENTITY = new Matrix4f();
     public static Vec3d cam = Vec3d.ZERO, forward = new Vec3d(0, 0, 1), up = new Vec3d(0, 1, 0);
     public static float tickDelta;
     public static boolean valid;
+    /** true  = we rotate vertices ourselves (GPU modelview is identity)
+     *  false = the GPU modelview already contains the camera rotation, so we must NOT rotate again */
+    public static boolean cpuView = true;
 
     private RenderUtil() {}
 
@@ -22,11 +27,19 @@ public final class RenderUtil {
         view.set(c.positionMatrix());
         proj.set(c.projectionMatrix());
         viewProj.set(proj).mul(view);
+        invViewProj.set(viewProj).invert();
         Camera camera = c.camera();
         cam = camera.getPos();
         forward = Vec3d.fromPolar(camera.getPitch(), camera.getYaw());
         up = Vec3d.fromPolar(camera.getPitch() - 90f, camera.getYaw());
         tickDelta = c.tickCounter().getTickDelta(true);
+
+        String mode = ModuleManager.HUD == null ? "Auto" : ModuleManager.HUD.matrixMode.get();
+        switch (mode) {
+            case "CPU" -> cpuView = true;
+            case "GPU" -> cpuView = false;
+            default -> cpuView = RenderSystem.getModelViewMatrix().equals(IDENTITY, 1.0E-4f);
+        }
         valid = true;
     }
 
@@ -57,7 +70,8 @@ public final class RenderUtil {
     }
 
     private static void v(BufferBuilder b, double x, double y, double z, int c) {
-        b.vertex(view, (float) (x - cam.x), (float) (y - cam.y), (float) (z - cam.z))
+        Matrix4f m = cpuView ? view : IDENTITY;
+        b.vertex(m, (float) (x - cam.x), (float) (y - cam.y), (float) (z - cam.z))
                 .color((c >> 16) & 255, (c >> 8) & 255, c & 255, (c >>> 24) & 255);
     }
 
@@ -113,5 +127,13 @@ public final class RenderUtil {
         if (p.w <= 0.01f) return null;
         float nx = p.x / p.w, ny = p.y / p.w;
         return new Vec3d((nx * 0.5 + 0.5) * sw, (1.0 - (ny * 0.5 + 0.5)) * sh, 0);
+    }
+
+    /** Screen (NDC -1..1) -> world position. nz=0.5 is roughly 0.2 blocks in front of the camera. */
+    public static Vec3d unproject(float nx, float ny, float nz) {
+        Vector4f p = new Vector4f(nx, ny, nz, 1f);
+        invViewProj.transform(p);
+        if (Math.abs(p.w) < 1.0E-6f) return cam.add(forward.multiply(0.2));
+        return cam.add(p.x / p.w, p.y / p.w, p.z / p.w);
     }
 }

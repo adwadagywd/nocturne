@@ -21,7 +21,7 @@ public class Tracers extends Module {
     private final BoolSetting fade = add(new BoolSetting("Fade by dist", true));
     private final TargetSettings targets = new TargetSettings(this, true, false, false, false);
 
-    public Tracers() { super("Tracers", "Lines from you to entities", Category.RENDER); }
+    public Tracers() { super("Tracers", "Lines from your crosshair to entities", Category.RENDER); }
 
     @Override
     public void onRender3d() {
@@ -31,9 +31,8 @@ public class Tracers extends Module {
             if (targets.test(e) && mc.player.distanceTo(e) <= range.get()) list.add(e);
         if (list.isEmpty()) return;
 
-        Vec3d from = RenderUtil.cam.add(RenderUtil.forward.multiply(0.3));
-        if (start.is("Bottom"))
-            from = RenderUtil.cam.add(RenderUtil.forward.multiply(0.6)).subtract(RenderUtil.up.multiply(0.38));
+        // exact centre of the screen (= crosshair), taken through the real camera matrices
+        Vec3d from = RenderUtil.unproject(0f, start.is("Bottom") ? -0.85f : 0f, 0.5f);
 
         RenderUtil.setup(width.getFloat());
         BufferBuilder b = RenderUtil.begin(VertexFormat.DrawMode.DEBUG_LINES);
