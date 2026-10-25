@@ -6,6 +6,7 @@ import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
 import dev.nocturne.util.Combat;
 import dev.nocturne.util.RenderUtil;
+import dev.nocturne.util.RotationManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
@@ -20,7 +21,6 @@ import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -28,6 +28,7 @@ import net.minecraft.util.math.Vec3d;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
     // --- targeting ---
@@ -43,14 +44,20 @@ public class KillAura extends Module {
     private final ModeSetting timing = add(new ModeSetting("Timing", "Cooldown", "Cooldown", "CPS"));
     private final NumSetting minCooldown = add(new NumSetting("Min cooldown", 0.92, 0.5, 1.0, 0.01));
     private final NumSetting cps = add(new NumSetting("CPS", 12, 1, 20, 1));
+    private final NumSetting cpsRandom = add(new NumSetting("CPS random", 2, 0, 6, 0.5));
     private final NumSetting maxHurt = add(new NumSetting("Max hurt time", 10, 0, 10, 1));
     // --- rotation ---
-    private final ModeSetting rotation = add(new ModeSetting("Rotation", "Smooth", "Smooth", "Snap", "None"));
+    private final ModeSetting rotation = add(new ModeSetting("Rotation", "Silent", "Silent", "Smooth", "Snap", "None"));
     private final NumSetting rotSpeed = add(new NumSetting("Rotation speed", 0.7, 0.1, 1.0, 0.05));
+    private final NumSetting turnSpeed = add(new NumSetting("Turn speed", 70, 10, 180, 5));
+    private final NumSetting jitter = add(new NumSetting("Jitter", 0.4, 0.0, 3.0, 0.1));
+    private final BoolSetting gcdFix = add(new BoolSetting("GCD fix", true));
+    private final NumSetting predict = add(new NumSetting("Predict", 0.0, 0.0, 4.0, 0.5));
     private final ModeSetting aimPoint = add(new ModeSetting("Aim point", "Nearest", "Nearest", "Head", "Chest", "Feet"));
-    private final BoolSetting raytrace = add(new BoolSetting("Raytrace", false));
+    private final BoolSetting raytrace = add(new BoolSetting("Raytrace", true));
     // --- combat rules ---
     private final BoolSetting onlyCrits = add(new BoolSetting("Only crits", false));
+    private final BoolSetting keepSprint = add(new BoolSetting("Keep sprint", false));
     private final BoolSetting autoJump = add(new BoolSetting("Auto jump", false));
     private final BoolSetting weaponOnly = add(new BoolSetting("Weapon only", false));
     private final BoolSetting autoWeapon = add(new BoolSetting("Auto weapon", false));
@@ -71,24 +78,31 @@ public class KillAura extends Module {
     private double cpsAcc;
     private long last;
     private boolean jumpHeld;
+    private float srvYaw, srvPitch;
+    private boolean srvInit;
 
     public KillAura() {
         super("KillAura", "Automatically attacks entities around you", Category.COMBAT);
         minCooldown.showIf(() -> timing.is("Cooldown"));
         cps.showIf(() -> timing.is("CPS"));
         rotSpeed.showIf(() -> rotation.is("Smooth"));
+        turnSpeed.showIf(() -> rotation.is("Silent"));
+        jitter.showIf(() -> rotation.is("Silent"));
+        gcdFix.showIf(() -> rotation.is("Silent"));
+        cpsRandom.showIf(() -> timing.is("CPS"));
         maxTargets.showIf(() -> mode.is("Multi"));
         switchDelay.showIf(() -> mode.is("Switch"));
         autoJump.showIf(onlyCrits::get);
     }
 
     @Override
-    protected void onEnable() { locked = null; primary = null; switchIndex = 0; switchTimer = 0; cpsAcc = 0; last = 0; }
+    protected void onEnable() { locked = null; primary = null; switchIndex = 0; switchTimer = 0; cpsAcc = 0; last = 0; releaseRotation(); }
 
     @Override
     protected void onDisable() {
         locked = null;
         primary = null;
+        releaseRotation();
         if (jumpHeld) { jumpHeld = false; KeyBinding.updatePressedStates(); }
     }
 
@@ -117,6 +131,7 @@ public class KillAura extends Module {
 
     private Vec3d aim(Entity e, Vec3d eye, float td) {
         Vec3d base = e.getLerpedPos(td);
+        if (predict.get() > 0) base = base.add(e.getPos().subtract(new Vec3d(e.prevX, e.prevY, e.prevZ)).multiply(predict.get()));
         Box b = e.getBoundingBox().offset(base.subtract(e.getPos()));
         return switch (aimPoint.get()) {
             case "Head" -> base.add(0, e.getStandingEyeHeight(), 0);
@@ -137,6 +152,61 @@ public class KillAura extends Module {
         float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, h));
         return new float[]{MathHelper.wrapDegrees(yaw - p.getYaw()), pitch - p.getPitch()};
+    }
+
+    /** absolute {yaw, pitch} needed to look at the aim point */
+    private float[] absAngles(Vec3d eye, Entity e, float td) {
+        Vec3d t = aim(e, eye, td);
+        double dx = t.x - eye.x, dy = t.y - eye.y, dz = t.z - eye.z;
+        double h = Math.sqrt(dx * dx + dz * dz);
+        return new float[]{(float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0), (float) -Math.toDegrees(Math.atan2(dy, h))};
+    }
+
+    /** smallest rotation step the game can produce with the current mouse sensitivity */
+    private double gcd() {
+        double f = mc.options.getMouseSensitivity().getValue() * 0.6 + 0.2;
+        return f * f * f * 8.0 * 0.15;
+    }
+
+    private boolean rayHits(PlayerEntity p, Entity e, float yaw, float pitch, double reach) {
+        Vec3d eye = p.getEyePos();
+        Vec3d dir = p.getRotationVector(pitch, yaw);
+        Box box = e.getBoundingBox().expand(e.getTargetingMargin());
+        return box.contains(eye) || box.raycast(eye, eye.add(dir.multiply(reach))).isPresent();
+    }
+
+    private void releaseRotation() {
+        srvInit = false;
+        RotationManager.clear();
+    }
+
+    /** moves the server-side rotation towards the target; runs before the player ticks so the movement packet carries it */
+    private void silentRotate(MinecraftClient mc, PlayerEntity p) {
+        if (!rotation.is("Silent") || mc.currentScreen != null || Combat.blocked() || !gate(p)) { releaseRotation(); return; }
+        Vec3d eye = p.getEyePos();
+        LivingEntity t = choose(candidates(p, eye, Math.max(range.get(), aimRange.get()), 1f));
+        if (t == null) { releaseRotation(); return; }
+        if (!srvInit) { srvYaw = p.getYaw(); srvPitch = p.getPitch(); srvInit = true; }
+
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        float[] want = absAngles(eye, t, 1f);
+        float dy = MathHelper.wrapDegrees(want[0] - srvYaw);
+        float dp = want[1] - srvPitch;
+        float max = turnSpeed.getFloat() * (0.85f + r.nextFloat() * 0.15f);
+        float len = (float) Math.hypot(dy, dp);
+        if (len > max) { float k = max / len; dy *= k; dp *= k; }
+        if (jitter.get() > 0) {
+            dy += (r.nextFloat() - 0.5f) * 2f * jitter.getFloat();
+            dp += (r.nextFloat() - 0.5f) * jitter.getFloat();
+        }
+        if (gcdFix.get()) {
+            double g = gcd();
+            dy = (float) (Math.round(dy / g) * g);
+            dp = (float) (Math.round(dp / g) * g);
+        }
+        srvYaw += dy;
+        srvPitch = MathHelper.clamp(srvPitch + dp, -90f, 90f);
+        RotationManager.set(srvYaw, srvPitch);
     }
 
     private List<Cand> candidates(PlayerEntity p, Vec3d eye, double maxRange, float td) {
@@ -216,7 +286,7 @@ public class KillAura extends Module {
         List<Cand> cands = candidates(p, eye, Math.max(range.get(), aimRange.get()), td);
         LivingEntity t = choose(cands);
         primary = t;
-        if (t == null || rotation.is("None")) return;
+        if (t == null || rotation.is("None") || rotation.is("Silent")) return;
 
         float[] a = angles(p, eye, t, td);
         float s = rotSpeed.getFloat();
@@ -240,6 +310,8 @@ public class KillAura extends Module {
             jumpHeld = false;
             KeyBinding.updatePressedStates();
         }
+        if (p == null) { releaseRotation(); return; }
+        silentRotate(mc, p);
     }
 
     // ---------------- after the player ticked: attack ----------------
@@ -248,7 +320,7 @@ public class KillAura extends Module {
         PlayerEntity p = mc.player;
         if (p == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null || Combat.blocked()) return;
         switchTimer++;
-        cpsAcc = Math.min(cpsAcc + cps.get() / 20.0, 2.0);
+        cpsAcc = Math.min(cpsAcc + Math.max(0.5, cps.get() + (Math.random() - 0.5) * 2.0 * cpsRandom.get()) / 20.0, 2.0);
         if (!gate(p)) return;
 
         Vec3d eye = p.getEyePos();
@@ -267,8 +339,9 @@ public class KillAura extends Module {
         }
         if (maxHurt.getInt() < 10) hit.removeIf(e -> e.hurtTime > maxHurt.getInt());
         if (raytrace.get()) {
-            Entity look = mc.crosshairTarget instanceof EntityHitResult r ? r.getEntity() : null;
-            hit.removeIf(e -> e != look);
+            float ly = RotationManager.active() ? RotationManager.yaw : p.getYaw();
+            float lp = RotationManager.active() ? RotationManager.pitch : p.getPitch();
+            hit.removeIf(e -> !rayHits(p, e, ly, lp, range.get()));
         }
         if (hit.isEmpty()) return;
 
@@ -277,7 +350,13 @@ public class KillAura extends Module {
         if (!ready) return;
         if (onlyCrits.get() && !Combat.canCrit(p)) return; // tip: AutoSprint keeps you sprinting => no crits
 
+        Vec3d vel = p.getVelocity();
+        boolean wasSprinting = p.isSprinting();
         for (LivingEntity e : hit) mc.interactionManager.attackEntity(p, e);
+        if (keepSprint.get() && wasSprinting) {
+            p.setVelocity(vel.x, p.getVelocity().y, vel.z);
+            p.setSprinting(true);
+        }
         doSwing(p);
         if (timing.is("CPS")) cpsAcc -= 1.0;
         if (mode.is("Switch") && switchTimer >= switchDelay.getInt()) { switchIndex++; switchTimer = 0; }
