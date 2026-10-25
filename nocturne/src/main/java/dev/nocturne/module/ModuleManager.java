@@ -18,6 +18,7 @@ public final class ModuleManager {
         ALL.add(new Hitboxes());
         ALL.add(new AimAssist());
         ALL.add(new TriggerBot());
+        ALL.add(new KillAura());
         // render
         ALL.add(new Tracers());
         ALL.add(new Esp());
