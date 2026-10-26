@@ -1,6 +1,6 @@
 package dev.nocturne.module.impl;
 
-import dev.nocturne.module.*;
+import dev.nocturne.module.Category;
 import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -48,6 +48,8 @@ public class Freecam extends Module {
             mc.setCameraEntity(mc.player);
             mc.player.setYaw(savedYaw);
             mc.player.setPitch(savedPitch);
+            mc.player.prevYaw = savedYaw;
+            mc.player.prevPitch = savedPitch;
         }
         cam = null;
         KeyBinding.updatePressedStates(); // give the movement keys back
@@ -83,8 +85,10 @@ public class Freecam extends Module {
         float dt = last == 0 ? 0.016f : Math.min(0.1f, (now - last) / 1.0e9f);
         last = now;
 
-        // the mouse still turns the real player -> move that rotation over to the camera
-        float dy = mc.player.getYaw() - savedYaw, dp = mc.player.getPitch() - savedPitch;
+        // Mouse look: depending on the game version the mouse turns either the player or the camera entity.
+        // Read the movement from BOTH, put it on the camera and keep the real body's rotation untouched.
+        float dy = (mc.player.getYaw() - savedYaw) + (cam.getYaw() - cyaw);
+        float dp = (mc.player.getPitch() - savedPitch) + (cam.getPitch() - cpitch);
         if (dy != 0f || dp != 0f) {
             cyaw += dy;
             cpitch = MathHelper.clamp(cpitch + dp, -90f, 90f);

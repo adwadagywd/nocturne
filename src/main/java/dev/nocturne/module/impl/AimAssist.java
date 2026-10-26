@@ -35,7 +35,7 @@ public class AimAssist extends Module {
     @Override protected void onDisable() { locked = null; }
 
     private boolean valid(PlayerEntity p, LivingEntity e, double rangeMul) {
-        return e.isAlive() && targets.test(e) && p.distanceTo(e) <= range.get() * rangeMul
+        return e.isAlive() && targets.testCombat(e) && p.distanceTo(e) <= range.get() * rangeMul
                 && (!visibleOnly.get() || p.canSee(e));
     }
 

@@ -35,8 +35,12 @@ public class TargetSettings {
         return false;
     }
 
+    /** like test(), but friends are never targeted by combat modules */
+    public boolean testCombat(Entity e) { return test(e) && !dev.nocturne.util.Friends.isFriend(e); }
+
     /** @return 0xRRGGBB */
     public int color(Entity e, double dist, double range) {
+        if (dev.nocturne.util.Friends.isFriend(e)) return 0x3DDC97;
         switch (colorMode.get()) {
             case "Health" -> {
                 if (e instanceof LivingEntity le) {

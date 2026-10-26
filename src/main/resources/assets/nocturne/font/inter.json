@@ -1,0 +1,6 @@
+{
+  "providers": [
+    { "type": "ttf", "file": "nocturne:inter_regular.otf", "shift": [0, 0], "size": 9.5, "oversample": 8.0 },
+    { "type": "reference", "id": "minecraft:include/default" }
+  ]
+}

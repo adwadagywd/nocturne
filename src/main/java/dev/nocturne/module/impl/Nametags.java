@@ -1,9 +1,11 @@
 package dev.nocturne.module.impl;
 
+import dev.nocturne.gui.Fonts;
 import dev.nocturne.gui.Draw;
 import dev.nocturne.module.*;
 import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
+import dev.nocturne.util.Friends;
 import dev.nocturne.util.RenderUtil;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.font.TextRenderer;
@@ -108,7 +110,7 @@ public class Nametags extends Module {
         }
         String ds = distance.get() ? String.format(Locale.ROOT, "%.0fm", dist) : null;
 
-        int w = tr.getWidth(name) + (hp != null ? 4 + tr.getWidth(hp) : 0) + (ds != null ? 4 + tr.getWidth(ds) : 0);
+        int w = Fonts.w(tr, name) + (hp != null ? 4 + Fonts.w(tr, hp) : 0) + (ds != null ? 4 + Fonts.w(tr, ds) : 0);
 
         MatrixStack m = ctx.getMatrices();
         m.push();
@@ -117,10 +119,10 @@ public class Nametags extends Module {
 
         int x = -w / 2, y = -10;
         if (background.get()) Draw.round(ctx, x - 3, y - 2, w + 6, 11, 3, 0xA00B0B0F);
-        ctx.drawText(tr, name, x, y, 0xFFFFFFFF, shadow.get());
-        x += tr.getWidth(name) + 4;
-        if (hp != null) { ctx.drawText(tr, hp, x, y, hpColor, shadow.get()); x += tr.getWidth(hp) + 4; }
-        if (ds != null) ctx.drawText(tr, ds, x, y, 0xFF9A9AA6, shadow.get());
+        ctx.drawText(tr, Fonts.t(name), x, y, Friends.isFriend(e) ? 0xFF3DDC97 : 0xFFFFFFFF, shadow.get());
+        x += Fonts.w(tr, name) + 4;
+        if (hp != null) { ctx.drawText(tr, Fonts.t(hp), x, y, hpColor, shadow.get()); x += Fonts.w(tr, hp) + 4; }
+        if (ds != null) ctx.drawText(tr, Fonts.t(ds), x, y, 0xFF9A9AA6, shadow.get());
 
         if (e instanceof LivingEntity le) drawGear(ctx, tr, le, y);
         m.pop();
@@ -157,7 +159,7 @@ public class Nametags extends Module {
                 m.scale(es, es, 1f);
                 for (int k = 0; k < lines.size(); k++) {
                     Line ln = lines.get(k);
-                    ctx.drawText(tr, ln.text(), -tr.getWidth(ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
+                    ctx.drawText(tr, Fonts.t(ln.text()), -Fonts.w(tr, ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
                 }
                 m.pop();
             }

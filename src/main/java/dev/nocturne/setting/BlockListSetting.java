@@ -6,7 +6,7 @@ import net.minecraft.util.Identifier;
 import java.util.*;
 
 /** A set of block ids with a built-in search box (drawn by the ClickGUI). */
-public class BlockListSetting extends Setting<Set<String>> {
+public class BlockListSetting extends Setting<Set<String>> implements Editable {
     public static final int MAX_RESULTS = 6, MAX_SHOWN = 8;
     private static List<String> ALL;
 
@@ -33,6 +33,13 @@ public class BlockListSetting extends Setting<Set<String>> {
     private static String path(String id) { return id.substring(id.indexOf(':') + 1); }
 
     public void setQuery(String q) { query = q; }
+
+    @Override public String text() { return query; }
+    @Override public void setText(String s) { query = s; }
+    @Override public char filter(char c) {
+        return (c < 128 && Character.isLetterOrDigit(c)) || c == '_' || c == ':' ? Character.toLowerCase(c) : 0;
+    }
+    @Override public int maxLen() { return 40; }
 
     public List<String> results() {
         if (query.isEmpty()) return List.of();
