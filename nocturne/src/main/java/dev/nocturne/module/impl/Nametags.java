@@ -4,6 +4,7 @@ import dev.nocturne.gui.Draw;
 import dev.nocturne.module.*;
 import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
+import dev.nocturne.util.Friends;
 import dev.nocturne.util.RenderUtil;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.font.TextRenderer;
@@ -117,7 +118,7 @@ public class Nametags extends Module {
 
         int x = -w / 2, y = -10;
         if (background.get()) Draw.round(ctx, x - 3, y - 2, w + 6, 11, 3, 0xA00B0B0F);
-        ctx.drawText(tr, name, x, y, 0xFFFFFFFF, shadow.get());
+        ctx.drawText(tr, name, x, y, Friends.isFriend(e) ? 0xFF3DDC97 : 0xFFFFFFFF, shadow.get());
         x += tr.getWidth(name) + 4;
         if (hp != null) { ctx.drawText(tr, hp, x, y, hpColor, shadow.get()); x += tr.getWidth(hp) + 4; }
         if (ds != null) ctx.drawText(tr, ds, x, y, 0xFF9A9AA6, shadow.get());

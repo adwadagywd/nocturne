@@ -39,6 +39,8 @@ public abstract class Module {
     public void onPreTick(MinecraftClient mc) {}
     /** runs every rendered frame (use for smooth rotation / camera movement) */
     public void onFrame() {}
+    /** called when the game closes (restore options you changed) */
+    public void onShutdown() {}
     /** false = module is never auto-enabled from the saved config */
     public boolean persistEnabled() { return true; }
     public void onRender3d() {}

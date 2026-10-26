@@ -31,7 +31,7 @@ public class TriggerBot extends Module {
         if (!(mc.crosshairTarget instanceof EntityHitResult hit)) return;
 
         Entity e = hit.getEntity();
-        if (!(e instanceof LivingEntity le) || !le.isAlive() || !targets.test(e)) return;
+        if (!(e instanceof LivingEntity le) || !le.isAlive() || !targets.testCombat(e)) return;
         if (p.distanceTo(e) > range.get()) return;
         if (weaponOnly.get() && !Combat.isWeapon(p.getMainHandStack())) return;
         if (pauseUsing.get() && p.isUsingItem()) return;
