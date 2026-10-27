@@ -21,7 +21,7 @@ public class Keystrokes extends Module {
 
     private void key(DrawContext ctx, TextRenderer tr, String label, int x, int y, int w, int h, float a) {
         Draw.round(ctx, x, y, w, h, 6, Draw.lerp(0xB00B0B0F, Theme.accentA(0xD0), a));
-        Draw.text(ctx, tr, label, x + (w - tr.getWidth(label)) / 2, y + (h - 8) / 2, Draw.lerp(0xFFBDBDC9, 0xFF0B0B0F, a), false);
+        Draw.text(ctx, tr, label, x + (w - Draw.width(tr, label)) / 2, y + (h - 8) / 2, Draw.lerp(0xFFBDBDC9, 0xFF0B0B0F, a), false);
     }
 
     @Override

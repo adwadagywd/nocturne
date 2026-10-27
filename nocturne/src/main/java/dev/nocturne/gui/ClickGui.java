@@ -242,7 +242,7 @@ public class ClickGui extends Screen {
             case FRIENDS -> "Friends are shown green and never targeted by combat modules";
             case THEME -> "Changes apply instantly and are stored in your configs";
         };
-        Draw.text(ctx, tr, hint, (width - tr.getWidth(hint)) / 2, height - 14, Theme.DIM, false);
+        Draw.text(ctx, tr, hint, (width - Draw.width(tr, hint)) / 2, height - 14, Theme.DIM, false);
         Draw.alpha = 1f;
     }
 
@@ -286,7 +286,7 @@ public class ClickGui extends Screen {
             boolean hov = !closing && in(mx, my, tx, by + 3, cell, bh - 6);
             float hv = anim(t, "thov", hov ? 1f : 0f, 18f);
             int color = t == tab ? Theme.accent() : Draw.lerp(Theme.DIM, Theme.TEXT, hv);
-            Draw.text(ctx, tr, t.label, tx + (cell - tr.getWidth(t.label)) / 2, by + (bh - 8) / 2, color, false);
+            Draw.text(ctx, tr, t.label, tx + (cell - Draw.width(tr, t.label)) / 2, by + (bh - 8) / 2, color, false);
             if (!closing) hits.add(new Hit(tx, by + 3, cell, bh - 6, (b, cx2, cy2) -> switchTab(t)));
         }
     }
@@ -330,7 +330,7 @@ public class ClickGui extends Screen {
             if (openA > 0.02f) Draw.rect(ctx, x + 1, y + HEAD - 8, W - 2, 8, Theme.header());
             Draw.bold(ctx, tr, c.label, x + 11, y + 10, Theme.TEXT, false);
             String cnt = on + "/" + mods.size();
-            Draw.text(ctx, tr, cnt, x + W - 11 - tr.getWidth(cnt), y + 10, on > 0 ? Theme.accent() : Theme.DIM, false);
+            Draw.text(ctx, tr, cnt, x + W - 11 - Draw.width(tr, cnt), y + 10, on > 0 ? Theme.accent() : Theme.DIM, false);
             Draw.hgrad(ctx, x + 10, y + HEAD - 1, W - 20, 1, Theme.accent(), Theme.accent2());
 
             if (live) hits.add(new Hit(x, y, W, HEAD, (b, hx, hy) -> {
@@ -364,7 +364,7 @@ public class ClickGui extends Screen {
                     }
                     String kl = bindingModule == m ? "[...]" : (m.key >= 0 ? "[" + keyName(m.key) + "]" : null);
                     if (kl != null)
-                        Draw.text(ctx, tr, kl, rx + rw - (m.settings.isEmpty() ? 6 : 18) - tr.getWidth(kl), cy + 6,
+                        Draw.text(ctx, tr, kl, rx + rw - (m.settings.isEmpty() ? 6 : 18) - Draw.width(tr, kl), cy + 6,
                                 bindingModule == m ? Theme.accent() : Theme.DIM, false);
                     if (live && cy + ROW <= bodyEnd)
                         hits.add(new Hit(rx, cy, rw, ROW, (b, hx, hy) -> {
@@ -393,7 +393,7 @@ public class ClickGui extends Screen {
             }
         }
         contentBottom = bottom;
-        if (hovered != null && !closing) ctx.drawTooltip(tr, Text.literal(hovered.description), mx, my);
+        if (hovered != null && !closing) ctx.drawTooltip(tr, Fonts.text(tr, hovered.description), mx, my);
     }
 
     // ---------------- Configs tab ----------------
@@ -536,7 +536,7 @@ public class ClickGui extends Screen {
         boolean empty = t.isEmpty();
         String shown = empty && !focused ? placeholder
                 : t + ((focused && (System.currentTimeMillis() / 450) % 2 == 0) ? "_" : "");
-        Draw.text(ctx, tr, tr.trimToWidth(shown, w - 12, focused && !empty), x + 6, y + (h - 8) / 2,
+        Draw.text(ctx, tr, (focused && !empty ? Draw.trimTail(tr, shown, w - 12) : Draw.trim(tr, shown, w - 12)), x + 6, y + (h - 8) / 2,
                 empty && !focused ? Theme.DIM : Theme.TEXT, false);
         if (act) hits.add(new Hit(x, y, w, h, (b, hx, hy) -> { edit = f; editEnter = enter; }));
     }
@@ -546,7 +546,7 @@ public class ClickGui extends Screen {
         boolean hov = act && in(mx, my, x, y, w, h);
         float hv = anim("btn:" + label + ":" + x + ":" + y, "h", hov ? 1f : 0f, 20f);
         Draw.round(ctx, x, y, w, h, 6, Draw.scaleA(color, 0.16f + 0.24f * hv));
-        Draw.text(ctx, tr, label, x + (w - tr.getWidth(label)) / 2, y + (h - 8) / 2, Draw.lerp(color, 0xFFFFFFFF, hv * 0.5f), false);
+        Draw.text(ctx, tr, label, x + (w - Draw.width(tr, label)) / 2, y + (h - 8) / 2, Draw.lerp(color, 0xFFFFFFFF, hv * 0.5f), false);
         if (act) hits.add(new Hit(x, y, w, h, (b, hx, hy) -> { if (b == 0) r.run(); }));
     }
 
@@ -565,7 +565,7 @@ public class ClickGui extends Screen {
         } else if (s instanceof ModeSetting m) {
             Draw.text(ctx, tr, m.name, x + 2, y + 5, labelCol, false);
             String v = m.get();
-            int vw = tr.getWidth(v);
+            int vw = Draw.width(tr, v);
             Draw.round(ctx, x + w - vw - 11, y + 2, vw + 9, 13, 6, Theme.accentA(0x30));
             Draw.text(ctx, tr, v, x + w - vw - 6, y + 5, Theme.accent(), false);
             if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> m.cycle(btn == 1 ? -1 : 1)));
@@ -582,7 +582,7 @@ public class ClickGui extends Screen {
                 final String id = res.get(i);
                 boolean isSel = bl.has(id);
                 if (act && in(mx, my, x, cy, w, 12)) Draw.round(ctx, x, cy, w, 12, 4, Theme.rowHover());
-                Draw.text(ctx, tr, tr.trimToWidth((isSel ? "+ " : "  ") + pretty(id), w - 6), x + 4, cy + 2,
+                Draw.text(ctx, tr, Draw.trim(tr, (isSel ? "+ " : "  ") + pretty(id), w - 6), x + 4, cy + 2,
                         isSel ? Theme.accent() : Theme.SOFT, false);
                 if (act) hits.add(new Hit(x, cy, w, 12, (btn, hx, hy) -> bl.toggle(id)));
                 cy += 12;
@@ -597,7 +597,7 @@ public class ClickGui extends Screen {
             for (int i = 0; i < shownN; i++) {
                 final String id = selected.get(i);
                 boolean hv = act && in(mx, my, x, cy, w, 11);
-                Draw.text(ctx, tr, tr.trimToWidth(pretty(id), w - 16), x + 4, cy + 1, hv ? Theme.TEXT : Theme.accent(), false);
+                Draw.text(ctx, tr, Draw.trim(tr, pretty(id), w - 16), x + 4, cy + 1, hv ? Theme.TEXT : Theme.accent(), false);
                 Draw.text(ctx, tr, "x", x + w - 9, cy + 1, hv ? 0xFFFF5555 : Theme.DIM, false);
                 if (act) hits.add(new Hit(x, cy, w, 11, (btn, hx, hy) -> bl.toggle(id)));
                 cy += 11;
@@ -608,7 +608,7 @@ public class ClickGui extends Screen {
             float f = anim(s, "f", (float) sl.fraction(), dragSlider == sl ? 60f : 22f);
             Draw.text(ctx, tr, s.name, x + 2, y + 4, labelCol, false);
             String v = s.display();
-            if (!v.isEmpty()) Draw.text(ctx, tr, v, x + w - 2 - tr.getWidth(v), y + 4, Theme.DIM, false);
+            if (!v.isEmpty()) Draw.text(ctx, tr, v, x + w - 2 - Draw.width(tr, v), y + 4, Theme.DIM, false);
             final int tx = x + 2, tw = w - 4, ty = y + h - 9;
             if (s instanceof ColorSetting) {
                 for (int i = 0; i < tw; i += 2)

@@ -33,7 +33,7 @@ public final class ItemDisplay {
             m.push();
             m.translate(x + 8, y + 18, 0);
             m.scale(0.6f, 0.6f, 1f);
-            Draw.text(ctx, tr, s, -tr.getWidth(s) / 2, 0, color, false);
+            Draw.text(ctx, tr, s, -Draw.width(tr, s) / 2, 0, color, false);
             m.pop();
         }
     }

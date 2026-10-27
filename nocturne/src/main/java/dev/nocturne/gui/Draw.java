@@ -129,16 +129,36 @@ public final class Draw {
     public static void text(DrawContext ctx, TextRenderer tr, String s, int x, int y, int color, boolean shadow) {
         int c = col(color);
         if ((c >>> 24) < 8) return; // vanilla draws near-transparent text fully opaque, so skip it
-        ctx.drawText(tr, s, x, y, c, shadow);
+        ctx.drawText(tr, Fonts.text(tr, s), x, y + Fonts.dy(tr), c, shadow);
     }
 
     public static void bold(DrawContext ctx, TextRenderer tr, String s, int x, int y, int color, boolean shadow) {
         int c = col(color);
         if ((c >>> 24) < 8) return;
-        ctx.drawText(tr, Text.literal(s).formatted(Formatting.BOLD), x, y, c, shadow);
+        ctx.drawText(tr, Fonts.bold(tr, s), x, y + Fonts.dy(tr), c, shadow);
+    }
+
+    public static int width(TextRenderer tr, String s) {
+        return tr.getWidth(Fonts.text(tr, s));
     }
 
     public static int boldWidth(TextRenderer tr, String s) {
-        return tr.getWidth(Text.literal(s).formatted(Formatting.BOLD));
+        return tr.getWidth(Fonts.bold(tr, s));
+    }
+
+    /** cuts the end of the text so it fits, adding ".." */
+    public static String trim(TextRenderer tr, String s, int w) {
+        if (width(tr, s) <= w) return s;
+        String t = s;
+        while (!t.isEmpty() && width(tr, t + "..") > w) t = t.substring(0, t.length() - 1);
+        return t + "..";
+    }
+
+    /** keeps the END of the text (used while typing in a text box) */
+    public static String trimTail(TextRenderer tr, String s, int w) {
+        if (width(tr, s) <= w) return s;
+        String t = s;
+        while (!t.isEmpty() && width(tr, t) > w) t = t.substring(1);
+        return t;
     }
 }

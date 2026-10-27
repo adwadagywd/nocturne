@@ -109,7 +109,7 @@ public class Nametags extends Module {
         }
         String ds = distance.get() ? String.format(Locale.ROOT, "%.0fm", dist) : null;
 
-        int w = tr.getWidth(name) + (hp != null ? 4 + tr.getWidth(hp) : 0) + (ds != null ? 4 + tr.getWidth(ds) : 0);
+        int w = Draw.width(tr, name) + (hp != null ? 4 + Draw.width(tr, hp) : 0) + (ds != null ? 4 + Draw.width(tr, ds) : 0);
 
         MatrixStack m = ctx.getMatrices();
         m.push();
@@ -118,10 +118,10 @@ public class Nametags extends Module {
 
         int x = -w / 2, y = -10;
         if (background.get()) Draw.round(ctx, x - 3, y - 2, w + 6, 11, 3, 0xA00B0B0F);
-        ctx.drawText(tr, name, x, y, Friends.isFriend(e) ? 0xFF3DDC97 : 0xFFFFFFFF, shadow.get());
-        x += tr.getWidth(name) + 4;
-        if (hp != null) { ctx.drawText(tr, hp, x, y, hpColor, shadow.get()); x += tr.getWidth(hp) + 4; }
-        if (ds != null) ctx.drawText(tr, ds, x, y, 0xFF9A9AA6, shadow.get());
+        Draw.text(ctx, tr, name, x, y, Friends.isFriend(e) ? 0xFF3DDC97 : 0xFFFFFFFF, shadow.get());
+        x += Draw.width(tr, name) + 4;
+        if (hp != null) { Draw.text(ctx, tr, hp, x, y, hpColor, shadow.get()); x += Draw.width(tr, hp) + 4; }
+        if (ds != null) Draw.text(ctx, tr, ds, x, y, 0xFF9A9AA6, shadow.get());
 
         if (e instanceof LivingEntity le) drawGear(ctx, tr, le, y);
         m.pop();
@@ -158,7 +158,7 @@ public class Nametags extends Module {
                 m.scale(es, es, 1f);
                 for (int k = 0; k < lines.size(); k++) {
                     Line ln = lines.get(k);
-                    ctx.drawText(tr, ln.text(), -tr.getWidth(ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
+                    Draw.text(ctx, tr, ln.text(), -Draw.width(tr, ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
                 }
                 m.pop();
             }
