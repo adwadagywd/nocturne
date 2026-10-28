@@ -39,6 +39,8 @@ public class ThemeModule extends Module {
     public final BoolSetting glow = add(new BoolSetting("Background glow", true));
     public final BoolSetting particles = add(new BoolSetting("Particles", true));
     public final BoolSetting shadows = add(new BoolSetting("Shadows", true));
+    public final BoolSetting uiSounds = add(new BoolSetting("UI sounds", true));
+    public final ModeSetting closeEffect = add(new ModeSetting("Close effect", "Burst", "Burst", "Slide", "Fade"));
     public final ModeSetting font = add(new ModeSetting("Font", "Custom", "Custom", "Minecraft"));
     public final NumSetting fontOffset = add(new NumSetting("Font Y offset", 0, -3, 3, 1));
 

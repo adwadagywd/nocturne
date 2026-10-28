@@ -4,6 +4,7 @@ import dev.nocturne.config.ConfigManager;
 import dev.nocturne.module.Category;
 import dev.nocturne.module.Module;
 import dev.nocturne.module.ModuleManager;
+import dev.nocturne.module.impl.Notifications;
 import dev.nocturne.module.impl.ThemeModule;
 import dev.nocturne.setting.*;
 import dev.nocturne.util.Friends;
@@ -63,6 +64,7 @@ public class ClickGui extends Screen {
     private boolean closing;
     private long closeNs;
     private float scroll, scrollTarget, contentBottom;
+    private float closeP, closeDur = 0.36f;
 
     private Category dragPanel;
     private int dragOx, dragOy;
@@ -92,6 +94,8 @@ public class ClickGui extends Screen {
         if (closing) return;
         closing = true;
         closeNs = System.nanoTime();
+        closeDur = Theme.closeEffect().equals("Fade") ? 0.2f : 0.4f;
+        Sounds.click(false);
     }
 
     // ================= helpers =================
@@ -99,6 +103,12 @@ public class ClickGui extends Screen {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
     private static float clamp01(float t) { return t < 0f ? 0f : Math.min(t, 1f); }
+    /** ease-out with a little overshoot: panels "bounce" into place */
+    private static float easeBack(float t) {
+        t = clamp01(t);
+        float c1 = 1.70158f, c3 = c1 + 1f, u = t - 1f;
+        return 1f + c3 * u * u * u + c1 * u * u;
+    }
     private static float ease(float t) { float u = 1f - clamp01(t); return 1f - u * u * u; }
 
     private static String keyOf(Object key) {
@@ -140,6 +150,7 @@ public class ClickGui extends Screen {
 
     private void switchTab(Tab t) {
         if (t == tab) return;
+        Sounds.click(true);
         tab = t;
         scroll = 0f;
         scrollTarget = 0f;
@@ -151,7 +162,11 @@ public class ClickGui extends Screen {
 
     private void refreshConfigs() { cfgList = ConfigManager.list(); }
 
-    private void setStatus(String s) { status = s; statusNs = System.nanoTime(); }
+    private void setStatus(String s) {
+        status = s;
+        statusNs = System.nanoTime();
+        Notifications.push("Nocturne", s, true);
+    }
 
     private void drawStatus(DrawContext ctx, TextRenderer tr, int x, int y) {
         if (status.isEmpty()) return;
@@ -202,10 +217,12 @@ public class ClickGui extends Screen {
         lastNs = now;
         tOpen = (now - openNs) / 1.0e9f;
         master = 1f;
+        closeP = 0f;
         if (closing) {
-            float cp = (now - closeNs) / 1.0e9f / 0.16f;
-            if (cp >= 1f) { client.setScreen(null); return; }
-            master = 1f - ease(cp);
+            closeP = (now - closeNs) / 1.0e9f / closeDur;
+            if (closeP >= 1f) { client.setScreen(null); return; }
+            boolean fade = Theme.closeEffect().equals("Fade");
+            master = 1f - ease(clamp01((closeP - (fade ? 0f : 0.35f)) / (fade ? 1f : 0.65f)));
         }
         hits.clear();
         TextRenderer tr = textRenderer;
@@ -233,6 +250,19 @@ public class ClickGui extends Screen {
         if (tab == Tab.MODULES) {
             Draw.alpha = master * tabA;
             drawField(ctx, tr, searchField, "Search modules...", (width - 220) / 2, 40, 220, 20, mx, my, !closing, null);
+        }
+
+        // juicy rings: a soft pulse when opening, a burst when closing
+        float ringMax = Math.max(width, height) * 0.62f;
+        if (closing && Theme.closeEffect().equals("Burst")) {
+            float rp = ease(closeP);
+            Draw.alpha = (1f - closeP) * 0.55f;
+            Draw.ring(ctx, width / 2.0, height / 2.0, rp * ringMax, 4, Theme.accent(), 1f);
+            Draw.ring(ctx, width / 2.0, height / 2.0, rp * ringMax * 0.82f, 2, Theme.accent2(), 1f);
+        } else if (!closing && tOpen < 0.6f) {
+            float rp = ease(tOpen / 0.6f);
+            Draw.alpha = (1f - tOpen / 0.6f) * 0.35f;
+            Draw.ring(ctx, width / 2.0, height / 2.0, rp * ringMax * 0.8f, 3, Theme.accent(), 1f);
         }
 
         Draw.alpha = master * clamp01(tOpen / 0.4f);
@@ -271,11 +301,12 @@ public class ClickGui extends Screen {
 
     private void drawTopBar(DrawContext ctx, TextRenderer tr, int mx, int my) {
         float intro = ease(tOpen / 0.3f);
-        Draw.alpha = master * intro;
+        float outT = closing && !Theme.closeEffect().equals("Fade") ? ease(clamp01(closeP * 1.6f)) : 0f;
+        Draw.alpha = master * intro * (1f - outT);
         Tab[] tabs = Tab.values();
         int cell = 72, gap = 4, bh = 26;
         int bw = tabs.length * cell + (tabs.length - 1) * gap + 16;
-        int bx = (width - bw) / 2, by = 8 - Math.round((1f - intro) * 10f);
+        int bx = (width - bw) / 2, by = 8 - Math.round((1f - intro) * 10f) - Math.round(outT * 22f);
 
         Draw.shadow(ctx, bx, by, bw, bh, 10);
         Draw.panel(ctx, bx, by, bw, bh, 10, Theme.bg(), Theme.border());
@@ -303,13 +334,16 @@ public class ClickGui extends Screen {
             List<Module> mods = modulesOf(c);
             if (mods.isEmpty()) continue;
             int[] st = state(c);
-            float p = ease((tOpen - idx * 0.06f) / 0.3f) * tabA;
+            float pin = ease((tOpen - idx * 0.06f) / 0.3f) * tabA;
+            float inRaw = clamp01((tOpen - idx * 0.06f) / 0.38f);
+            float outP = closing && !Theme.closeEffect().equals("Fade") ? ease((closeP * 1.4f - idx * 0.07f) / 0.6f) : 0f;
             idx++;
+            float p = pin * (1f - outP);
             Draw.alpha = master * p;
             boolean live = p > 0.7f && !closing;
 
             final int x = MathHelper.clamp(st[0], 0, Math.max(0, width - W));
-            final int y = st[1] + sc + Math.round((1f - p) * 16f);
+            final int y = st[1] + sc + Math.round((1f - easeBack(inRaw)) * 34f) + Math.round(outP * 40f);
             float openA = anim(c, "open", (st[2] == 1 || searching) ? 1f : 0f, 16f);
 
             int bodyH = 0, on = 0;
@@ -332,6 +366,9 @@ public class ClickGui extends Screen {
             String cnt = on + "/" + mods.size();
             Draw.text(ctx, tr, cnt, x + W - 11 - Draw.width(tr, cnt), y + 10, on > 0 ? Theme.accent() : Theme.DIM, false);
             Draw.hgrad(ctx, x + 10, y + HEAD - 1, W - 20, 1, Theme.accent(), Theme.accent2());
+            int shx = x + 10 + Math.round(((System.currentTimeMillis() + c.ordinal() * 400L) % 2600L) / 2600f * (W - 20 - 28));
+            Draw.hgrad(ctx, shx, y + HEAD - 1, 14, 1, 0x00FFFFFF, 0xB0FFFFFF);
+            Draw.hgrad(ctx, shx + 14, y + HEAD - 1, 14, 1, 0xB0FFFFFF, 0x00FFFFFF);
 
             if (live) hits.add(new Hit(x, y, W, HEAD, (b, hx, hy) -> {
                 if (b == 0) { dragPanel = c; dragOx = hx - x; dragOy = hy - y; }
@@ -350,6 +387,8 @@ public class ClickGui extends Screen {
                     float hv = anim(m, "hov", hov ? 1f : 0f, 18f);
                     float en = anim(m, "en", m.isEnabled() ? 1f : 0f, 14f);
 
+                    float fl = anim(m, "flash", 0f, 5f);
+                    if (fl > 0.01f) Draw.round(ctx, rx, ry, rw, rh, 6, Draw.scaleA(0xFFFFFFFF, fl * 0.2f));
                     if (hv > 0.01f) Draw.round(ctx, rx, ry, rw, rh, 6, Draw.scaleA(Theme.rowHover(), hv));
                     if (en > 0.01f) {
                         int fw = Math.max(10, Math.round(rw * en));
@@ -368,7 +407,7 @@ public class ClickGui extends Screen {
                                 bindingModule == m ? Theme.accent() : Theme.DIM, false);
                     if (live && cy + ROW <= bodyEnd)
                         hits.add(new Hit(rx, cy, rw, ROW, (b, hx, hy) -> {
-                            if (b == 0) m.toggle();
+                            if (b == 0) { m.toggle(); anims.put(keyOf(m) + "flash", 1f); Sounds.click(m.isEnabled()); }
                             else if (b == 1) m.expanded = !m.expanded;
                             else if (b == 2) bindingModule = m;
                         }));
@@ -561,14 +600,14 @@ public class ClickGui extends Screen {
             int px = x + w - 22, py = y + 4;
             Draw.round(ctx, px, py, 20, 10, 5, Draw.lerp(Theme.track(), Theme.accent(), t));
             Draw.round(ctx, px + 1 + Math.round(10 * t), py + 1, 8, 8, 4, Theme.KNOB);
-            if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> b.toggle()));
+            if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> { b.toggle(); Sounds.click(b.get()); }));
         } else if (s instanceof ModeSetting m) {
             Draw.text(ctx, tr, m.name, x + 2, y + 5, labelCol, false);
             String v = m.get();
             int vw = Draw.width(tr, v);
             Draw.round(ctx, x + w - vw - 11, y + 2, vw + 9, 13, 6, Theme.accentA(0x30));
             Draw.text(ctx, tr, v, x + w - vw - 6, y + 5, Theme.accent(), false);
-            if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> m.cycle(btn == 1 ? -1 : 1)));
+            if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> { m.cycle(btn == 1 ? -1 : 1); Sounds.click(true); }));
         } else if (s instanceof StringSetting ss) {
             Draw.text(ctx, tr, ss.name, x + 2, y + 3, labelCol, false);
             drawField(ctx, tr, ss, "type here...", x, y + 15, w, 16, mx, my, act, null);
@@ -618,6 +657,7 @@ public class ClickGui extends Screen {
                 Draw.round(ctx, tx, ty, tw, 5, 2.5f, Theme.track());
                 int fw = Math.max(5, Math.round(tw * f));
                 Draw.round(ctx, tx, ty, fw, 5, 2.5f, Theme.accent());
+                if (dragSlider == sl || hov) Draw.round(ctx, tx + fw - 7, ty - 4, 14, 13, 6.5f, Theme.accentA(0x40));
                 Draw.round(ctx, tx + fw - 4, ty - 1, 8, 7, 3.5f, Theme.KNOB);
             }
             if (act) hits.add(new Hit(x, y, w, h, (btn, hx, hy) -> {

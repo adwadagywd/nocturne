@@ -16,6 +16,15 @@ public class Hitboxes extends Module {
     private final NumSetting alpha = add(new NumSetting("Box alpha", 0.8, 0.1, 1.0, 0.05));
     private final TargetSettings targets = new TargetSettings(this, true, false, false, false);
 
+    private final BoolSetting throughWebs = add(new BoolSetting("Through cobwebs", true));
+
+    /** used by an optional mixin: cobwebs stop blocking your crosshair, so players standing in them can be hit */
+    public static boolean ignoreWebs(net.minecraft.block.AbstractBlock.AbstractBlockState state) {
+        Hitboxes h = INSTANCE;
+        return h != null && h.isEnabled() && h.throughWebs.get() && state.isOf(net.minecraft.block.Blocks.COBWEB)
+                && net.minecraft.client.MinecraftClient.getInstance().isOnThread();
+    }
+
     public Hitboxes() {
         super("Hitboxes", "Expands the area you can hit entities in", Category.COMBAT);
         INSTANCE = this;

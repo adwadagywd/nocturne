@@ -110,6 +110,27 @@ public final class Draw {
         m.pop();
     }
 
+    /** circle outline (or an arc: frac = 0..1 of the full turn, starting at the top) drawn in real screen pixels */
+    public static void ring(DrawContext ctx, double cx, double cy, double radius, double thick, int color, float frac) {
+        int c = col(color);
+        if ((c >>> 24) == 0 || frac <= 0f || radius <= 0) return;
+        double s = MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double rp = radius * s;
+        int t = Math.max(1, (int) Math.round(thick * s));
+        int n = (int) Math.max(16, Math.min(720, Math.ceil(2 * Math.PI * rp / Math.max(1.0, t * 0.85))));
+        int steps = (int) Math.ceil(n * Math.min(1f, frac));
+        MatrixStack m = ctx.getMatrices();
+        m.push();
+        m.scale((float) (1.0 / s), (float) (1.0 / s), 1f);
+        for (int i = 0; i < steps; i++) {
+            double a = -Math.PI / 2 + i * (Math.PI * 2 / n);
+            int px = (int) Math.round(cx * s + Math.cos(a) * rp - t / 2.0);
+            int py = (int) Math.round(cy * s + Math.sin(a) * rp - t / 2.0);
+            ctx.fill(px, py, px + t, py + t, c);
+        }
+        m.pop();
+    }
+
     /** 1px (GUI px) rounded outline made of an outer + inner rounded rect */
     public static void panel(DrawContext ctx, int x, int y, int w, int h, float r, int fill, int border) {
         round(ctx, x, y, w, h, r, border);

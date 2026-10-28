@@ -30,6 +30,7 @@ public abstract class Module {
         if (e == enabled) return;
         enabled = e;
         if (e) onEnable(); else onDisable();
+        dev.nocturne.module.impl.Notifications.moduleToggled(this, e);
     }
 
     protected void onEnable() {}
