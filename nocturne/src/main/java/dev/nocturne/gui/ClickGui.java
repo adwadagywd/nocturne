@@ -4,6 +4,7 @@ import dev.nocturne.config.ConfigManager;
 import dev.nocturne.module.Category;
 import dev.nocturne.module.Module;
 import dev.nocturne.module.ModuleManager;
+import dev.nocturne.module.impl.NoFriendsDamage;
 import dev.nocturne.module.impl.Notifications;
 import dev.nocturne.module.impl.ThemeModule;
 import dev.nocturne.setting.*;
@@ -490,7 +491,7 @@ public class ClickGui extends Screen {
         int cy = TOP + Math.round(scroll) + Math.round((1f - tabA) * 14f);
         List<String> fl = Friends.all();
         int rows = Math.max(1, fl.size());
-        int ch = 34 + 36 + rows * 24 + 36;
+        int ch = 34 + 36 + rows * 24 + 36 + 30;
         card(ctx, tr, cx, cy, cw, ch, "Friends", "NoFriendsDamage protects them");
 
         int iy = cy + 34 + 8;
@@ -510,6 +511,14 @@ public class ClickGui extends Screen {
                 setStatus("Removed " + n);
             });
             ly += 24;
+        }
+        NoFriendsDamage nf = NoFriendsDamage.INSTANCE;
+        if (nf != null) {
+            int ty = ly + 6;
+            boolean on = nf.isEnabled();
+            Draw.text(ctx, tr, "NoFriendsDamage", cx + 14, ty + 5, Theme.SOFT, false);
+            button(ctx, tr, on ? "ON" : "OFF", cx + cw - 14 - 54, ty, 54, 18, live, mx, my,
+                    on ? 0xFF3DDC97 : 0xFFFF5C6C, () -> { nf.toggle(); Sounds.click(nf.isEnabled()); });
         }
         drawStatus(ctx, tr, cx + 14, cy + ch - 22);
         contentBottom = TOP + ch + 30;
@@ -613,24 +622,31 @@ public class ClickGui extends Screen {
             drawField(ctx, tr, ss, "type here...", x, y + 15, w, 16, mx, my, act, null);
         } else if (s instanceof BlockListSetting bl) {
             int cy = y + 3;
-            drawField(ctx, tr, bl, "Search blocks...", x, cy, w, 14, mx, my, act, null);
-            cy += 16;
-            List<String> res = bl.results();
-            int n = Math.min(res.size(), BlockListSetting.MAX_RESULTS);
-            for (int i = 0; i < n; i++) {
-                final String id = res.get(i);
-                boolean isSel = bl.has(id);
-                if (act && in(mx, my, x, cy, w, 12)) Draw.round(ctx, x, cy, w, 12, 4, Theme.rowHover());
-                Draw.text(ctx, tr, Draw.trim(tr, (isSel ? "+ " : "  ") + pretty(id), w - 6), x + 4, cy + 2,
-                        isSel ? Theme.accent() : Theme.SOFT, false);
-                if (act) hits.add(new Hit(x, cy, w, 12, (btn, hx, hy) -> bl.toggle(id)));
-                cy += 12;
+            if (bl.searchable) {
+                drawField(ctx, tr, bl, "Search blocks...", x, cy, w, 14, mx, my, act, null);
+                cy += 16;
+                List<String> res = bl.results();
+                int n = Math.min(res.size(), BlockListSetting.MAX_RESULTS);
+                for (int i = 0; i < n; i++) {
+                    final String id = res.get(i);
+                    boolean isSel = bl.has(id);
+                    if (act && in(mx, my, x, cy, w, 12)) Draw.round(ctx, x, cy, w, 12, 4, Theme.rowHover());
+                    Draw.text(ctx, tr, Draw.trim(tr, (isSel ? "+ " : "  ") + pretty(id), w - 6), x + 4, cy + 2,
+                            isSel ? Theme.accent() : Theme.SOFT, false);
+                    if (act) hits.add(new Hit(x, cy, w, 12, (btn, hx, hy) -> bl.toggle(id)));
+                    cy += 12;
+                }
+                cy += 2;
+                int bw = (w - 4) / 2;
+                button(ctx, tr, "All ores", x, cy, bw, 14, act, mx, my, Theme.accent(), bl::addAllOres);
+                button(ctx, tr, "Clear", x + bw + 4, cy, bw, 14, act, mx, my, 0xFFFF5C6C, bl::clear);
+                cy += 18;
+            } else {
+                Draw.text(ctx, tr, Draw.trim(tr, bl.hint, w - 4), x + 2, cy + 1, Theme.DIM, false);
+                cy += 13;
+                button(ctx, tr, "Clear selection", x, cy, w, 14, act, mx, my, 0xFFFF5C6C, bl::clear);
+                cy += 18;
             }
-            cy += 2;
-            int bw = (w - 4) / 2;
-            button(ctx, tr, "All ores", x, cy, bw, 14, act, mx, my, Theme.accent(), bl::addAllOres);
-            button(ctx, tr, "Clear", x + bw + 4, cy, bw, 14, act, mx, my, 0xFFFF5C6C, bl::clear);
-            cy += 18;
             List<String> selected = new ArrayList<>(bl.get());
             int shownN = Math.min(selected.size(), BlockListSetting.MAX_SHOWN);
             for (int i = 0; i < shownN; i++) {

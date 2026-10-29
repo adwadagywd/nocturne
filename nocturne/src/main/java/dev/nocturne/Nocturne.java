@@ -42,7 +42,7 @@ public class Nocturne implements ClientModInitializer {
             if (NoFriendsDamage.blocks(entity)) return ActionResult.FAIL;
             HitMarker.onHit();
             DamageText.noteAttack(entity);
-            FakePlayer.onAttack(player, entity);
+            if (FakePlayer.onAttack(player, entity)) return ActionResult.FAIL; // client-only dummy: no attack packet
             return ActionResult.PASS;
         });
 

@@ -8,7 +8,11 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
 
-/** Cancels every attack you make on a player from your friends list (manual hits and bots alike). */
+/**
+ * Stops you from hitting players in your friends list. Two independent layers:
+ *  1) the attack event itself is cancelled (covers manual hits and TriggerBot),
+ *  2) while your crosshair is on a friend the attack key is swallowed before the game can use it.
+ */
 public class NoFriendsDamage extends Module {
     public static NoFriendsDamage INSTANCE;
     private final BoolSetting notify = add(new BoolSetting("Notify", true));
@@ -19,15 +23,29 @@ public class NoFriendsDamage extends Module {
         INSTANCE = this;
     }
 
+    private void tell(Entity e) {
+        long now = System.currentTimeMillis();
+        if (!notify.get() || now - lastNotify < 1000) return;
+        lastNotify = now;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player != null) mc.player.sendMessage(Text.literal("Friend: " + e.getName().getString() + " - attack blocked"), true);
+    }
+
+    /** layer 1: called from the attack event */
     public static boolean blocks(Entity e) {
         NoFriendsDamage m = INSTANCE;
         if (m == null || !m.isEnabled() || !Friends.isFriend(e)) return false;
-        long now = System.currentTimeMillis();
-        if (m.notify.get() && now - m.lastNotify > 1000) {
-            m.lastNotify = now;
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc.player != null) mc.player.sendMessage(Text.literal("Friend: " + e.getName().getString() + " - attack blocked"), true);
-        }
+        m.tell(e);
         return true;
+    }
+
+    /** layer 2: runs before the game reads your mouse buttons this tick */
+    @Override
+    public void onPreTick(MinecraftClient mc) {
+        Entity t = mc.targetedEntity;
+        if (t == null || !Friends.isFriend(t)) return;
+        boolean pressed = false;
+        while (mc.options.attackKey.wasPressed()) pressed = true; // consume queued clicks
+        if (pressed) tell(t);
     }
 }

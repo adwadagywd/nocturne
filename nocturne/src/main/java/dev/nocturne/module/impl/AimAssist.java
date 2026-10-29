@@ -22,7 +22,7 @@ public class AimAssist extends Module {
     private final BoolSetting holdClick = add(new BoolSetting("Hold LMB only", false));
     private final BoolSetting weaponOnly = add(new BoolSetting("Weapon only", false));
     private final BoolSetting visibleOnly = add(new BoolSetting("Visible only", true));
-    private final TargetSettings targets = new TargetSettings(this, true, false, false, false);
+    private final TargetSettings targets = new TargetSettings(this, true, false, false, false, false);
 
     private long last;
     private LivingEntity locked;

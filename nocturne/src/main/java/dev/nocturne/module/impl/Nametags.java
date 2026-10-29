@@ -120,7 +120,7 @@ public class Nametags extends Module {
 
         int x = -w / 2, y = -10;
         if (background.get()) Draw.round(ctx, x - 3, y - 2, w + 6, 11, 3, 0xA00B0B0F);
-        Draw.text(ctx, tr, name, x, y, Friends.isFriend(e) ? 0xFF3DDC97 : 0xFFFFFFFF, shadow.get());
+        Draw.text(ctx, tr, name, x, y, Friends.isFriend(e) ? (0xFF000000 | targets.friendRgb()) : 0xFFFFFFFF, shadow.get());
         x += Draw.width(tr, name) + 4;
         if (hp != null) { Draw.text(ctx, tr, hp, x, y, hpColor, shadow.get()); x += Draw.width(tr, hp) + 4; }
         if (ds != null) Draw.text(ctx, tr, ds, x, y, 0xFF9A9AA6, shadow.get());

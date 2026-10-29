@@ -14,6 +14,8 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -33,15 +35,22 @@ public class Nuker extends Module {
     private final BoolSetting autoTool = add(new BoolSetting("Auto tool", true));
     private final ModeSetting swing = add(new ModeSetting("Swing", "Normal", "Normal", "None"));
     private final BoolSetting highlight = add(new BoolSetting("Highlight target", true));
-    private final BlockListSetting blocks = add(new BlockListSetting("Blocks"));
+    private final BoolSetting learn = add(new BoolSetting("Select by mining", true));
+    private final BlockListSetting blocks = add(new BlockListSetting("Selected blocks"));
 
     private final Set<Block> set = new HashSet<>();
     private int builtVersion = -1, timer;
     private BlockPos current;
+    private BlockPos watchPos;
+    private Block watchBlock;
+    private int attackTicks;
 
     public Nuker() {
         super("Nuker", "Mass-breaks blocks: All / Selected / Flatten / Tunnel", Category.WORLD);
         blocks.showIf(() -> mode.is("Selected"));
+        learn.showIf(() -> mode.is("Selected"));
+        blocks.searchable = false;
+        blocks.hint = "Mine a block - its type gets selected";
     }
 
     @Override protected void onEnable() { builtVersion = -1; current = null; timer = 0; }
@@ -112,8 +121,40 @@ public class Nuker extends Module {
         if (best != p.getInventory().selectedSlot) p.getInventory().selectedSlot = best;
     }
 
+    /** before the game handles your mouse this tick: remember which block your crosshair is on */
+    @Override
+    public void onPreTick(MinecraftClient mc) {
+        watchPos = null;
+        watchBlock = null;
+        if (!mode.is("Selected") || !learn.get() || mc.world == null) return;
+        if (mc.options.attackKey.isPressed()) attackTicks = 4;
+        if (mc.crosshairTarget instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
+            BlockState st = mc.world.getBlockState(hit.getBlockPos());
+            if (!st.isAir()) { watchPos = hit.getBlockPos(); watchBlock = st.getBlock(); }
+        }
+    }
+
+    /** after the tick: if the block you were digging is gone, its type becomes selected */
+    private void learnFromMining(MinecraftClient mc) {
+        if (mc.options.attackKey.isPressed()) attackTicks = 4;
+        boolean recent = attackTicks > 0;
+        if (attackTicks > 0) attackTicks--;
+        if (!recent || watchPos == null || watchBlock == null || !mode.is("Selected") || !learn.get()) return;
+        if (mc.world.getBlockState(watchPos).getBlock() == watchBlock) return; // still there
+        if (!watchPos.equals(current)) { // not broken by the nuker itself
+            String id = Registries.BLOCK.getId(watchBlock).toString();
+            if (!blocks.has(id)) {
+                blocks.toggle(id);
+                Notifications.push("Nuker", "Selected " + watchBlock.getName().getString(), true);
+            }
+        }
+        watchPos = null;
+        watchBlock = null;
+    }
+
     @Override
     public void onTick(MinecraftClient mc) {
+        learnFromMining(mc);
         PlayerEntity p = mc.player;
         if (p == null || mc.interactionManager == null || mc.currentScreen != null || Combat.blocked()) return;
         if (builtVersion != blocks.version) rebuild();

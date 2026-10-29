@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Formatting;
 
 import java.io.Reader;
 import java.lang.reflect.Type;
@@ -47,8 +48,16 @@ public final class Friends {
         return name != null && MAP.containsKey(name.toLowerCase(Locale.ROOT));
     }
 
+    /** matches the real profile name, the display name and the scoreboard name (case-insensitive, colour codes stripped) */
     public static boolean isFriend(Entity e) {
-        return e instanceof PlayerEntity && !MAP.isEmpty() && MAP.containsKey(e.getName().getString().toLowerCase(Locale.ROOT));
+        if (!(e instanceof PlayerEntity p) || MAP.isEmpty()) return false;
+        return has(p.getGameProfile().getName()) || has(p.getName().getString()) || has(p.getNameForScoreboard());
+    }
+
+    private static boolean has(String name) {
+        if (name == null) return false;
+        String clean = Formatting.strip(name);
+        return clean != null && MAP.containsKey(clean.trim().toLowerCase(Locale.ROOT));
     }
 
     public static void save() {

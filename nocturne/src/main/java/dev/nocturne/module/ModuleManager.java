@@ -64,6 +64,7 @@ public final class ModuleManager {
         HUD.setEnabled(true);
         THEME.setEnabled(true);
         notif.setEnabled(true);
+        if (NoFriendsDamage.INSTANCE != null) NoFriendsDamage.INSTANCE.setEnabled(true); // friends are safe by default
     }
 
     /** called every frame: toggles modules whose bound key was just pressed */
