@@ -20,7 +20,7 @@ public class BlockHighlight extends Module {
     private final NumSetting width = add(new NumSetting("Line width", 2.0, 0.5, 5, 0.5));
 
     public BlockHighlight() {
-        super("BlockHighlight", "Highlights the block under your crosshair in the theme colour", Category.RENDER);
+        super("BlockHighlight", "Highlights the block under your crosshair in the theme colour", Category.VISUALS);
         fillAlpha.showIf(fill::get);
     }
 

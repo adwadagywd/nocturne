@@ -4,7 +4,11 @@ import dev.nocturne.config.ConfigManager;
 import dev.nocturne.gui.ClickGui;
 import dev.nocturne.module.Module;
 import dev.nocturne.module.ModuleManager;
+import dev.nocturne.module.impl.DamageText;
 import dev.nocturne.module.impl.FakePlayer;
+import dev.nocturne.module.impl.HitBurst;
+import dev.nocturne.module.impl.HitMarker;
+import dev.nocturne.module.impl.Notifications;
 import dev.nocturne.module.impl.NoFriendsDamage;
 import dev.nocturne.util.Friends;
 import dev.nocturne.util.RenderUtil;
@@ -36,8 +40,11 @@ public class Nocturne implements ClientModInitializer {
         // every attack the local player makes goes through here (manual hits and TriggerBot alike)
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
             if (!world.isClient()) return ActionResult.PASS;
-            if (FakePlayer.onAttack(entity)) return ActionResult.PASS;
             if (NoFriendsDamage.blocks(entity)) return ActionResult.FAIL;
+            HitMarker.onHit();
+            HitBurst.onHit(entity);
+            DamageText.noteAttack(entity);
+            if (FakePlayer.onAttack(player, entity)) return ActionResult.FAIL; // client-only dummy: no attack packet
             return ActionResult.PASS;
         });
 
@@ -68,6 +75,8 @@ public class Nocturne implements ClientModInitializer {
             if (mc.options.hudHidden) return;
             for (Module m : ModuleManager.ALL) if (m.isEnabled()) m.onRenderHud(ctx);
         });
+
+        Notifications.suppress = false; // startup toggles stay silent
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
             for (Module m : ModuleManager.ALL) if (m.isEnabled()) m.onShutdown();

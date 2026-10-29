@@ -11,6 +11,9 @@ public class BlockListSetting extends Setting<Set<String>> implements Editable {
     private static List<String> ALL;
 
     public String query = "";
+    /** false = no search box: the list is filled some other way (e.g. by mining) */
+    public boolean searchable = true;
+    public String hint = "";
     /** bumped on every change so modules know when to rebuild */
     public int version;
     private String cachedQuery;
@@ -73,6 +76,8 @@ public class BlockListSetting extends Setting<Set<String>> implements Editable {
 
     /** pixel height of the widget, must match ClickGui's layout */
     public int height() {
+        int m0 = Math.min(value.size(), MAX_SHOWN);
+        if (!searchable) return 37 + m0 * 11 + (value.size() > m0 ? 11 : 0);
         int n = Math.min(results().size(), MAX_RESULTS);
         int m = Math.min(value.size(), MAX_SHOWN);
         return 42 + n * 12 + m * 11 + (value.size() > m ? 11 : 0);

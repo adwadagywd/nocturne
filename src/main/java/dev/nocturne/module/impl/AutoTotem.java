@@ -1,6 +1,6 @@
 package dev.nocturne.module.impl;
 
-import dev.nocturne.gui.Fonts;
+import dev.nocturne.gui.Draw;
 import dev.nocturne.module.Category;
 import dev.nocturne.module.Module;
 import dev.nocturne.setting.*;
@@ -52,6 +52,7 @@ public class AutoTotem extends Module {
     @Override
     public void onRenderHud(DrawContext ctx) {
         if (!counter.get() || mc.player == null) return;
+        Draw.alpha = 1f;
         int n = 0;
         for (int i = 0; i < 36; i++) {
             ItemStack s = mc.player.getInventory().getStack(i);
@@ -61,6 +62,6 @@ public class AutoTotem extends Module {
         TextRenderer tr = mc.textRenderer;
         int x = mc.getWindow().getScaledWidth() / 2 + 98, y = mc.getWindow().getScaledHeight() - 21;
         ctx.drawItem(new ItemStack(Items.TOTEM_OF_UNDYING), x, y);
-        ctx.drawText(tr, Fonts.t("x" + n), x + 18, y + 4, n > 0 ? 0xFFFFFFFF : 0xFFFF5555, true);
+        Draw.text(ctx, tr, "x" + n, x + 18, y + 4, n > 0 ? 0xFFFFFFFF : 0xFFFF5555, true);
     }
 }

@@ -1,6 +1,5 @@
 package dev.nocturne.module.impl;
 
-import dev.nocturne.gui.Fonts;
 import dev.nocturne.gui.Draw;
 import dev.nocturne.module.*;
 import dev.nocturne.module.Module;
@@ -37,7 +36,8 @@ public class Nametags extends Module {
     private final BoolSetting hands = add(new BoolSetting("Held items", true));
     private final BoolSetting durability = add(new BoolSetting("Durability", true));
     private final BoolSetting enchants = add(new BoolSetting("Enchants", true));
-    private final ModeSetting enchantNames = add(new ModeSetting("Enchant names", "Short", "Short", "Full"));
+    private final ModeSetting enchantNames = add(new ModeSetting("Enchant style", "Short", "Short", "Tiny", "Full"));
+    private final NumSetting maxEnchants = add(new NumSetting("Max enchants", 5, 1, 8, 1));
     private final NumSetting enchantScale = add(new NumSetting("Enchant size", 0.55, 0.3, 1.0, 0.05));
     private final BoolSetting background = add(new BoolSetting("Background", true));
     private final BoolSetting shadow = add(new BoolSetting("Text shadow", false));
@@ -66,6 +66,7 @@ public class Nametags extends Module {
         super("Nametags", "Custom nametags with health, armor and enchants", Category.RENDER);
         INSTANCE = this;
         enchantNames.showIf(enchants::get);
+        maxEnchants.showIf(enchants::get);
         enchantScale.showIf(enchants::get);
     }
 
@@ -110,7 +111,7 @@ public class Nametags extends Module {
         }
         String ds = distance.get() ? String.format(Locale.ROOT, "%.0fm", dist) : null;
 
-        int w = Fonts.w(tr, name) + (hp != null ? 4 + Fonts.w(tr, hp) : 0) + (ds != null ? 4 + Fonts.w(tr, ds) : 0);
+        int w = Draw.width(tr, name) + (hp != null ? 4 + Draw.width(tr, hp) : 0) + (ds != null ? 4 + Draw.width(tr, ds) : 0);
 
         MatrixStack m = ctx.getMatrices();
         m.push();
@@ -119,10 +120,10 @@ public class Nametags extends Module {
 
         int x = -w / 2, y = -10;
         if (background.get()) Draw.round(ctx, x - 3, y - 2, w + 6, 11, 3, 0xA00B0B0F);
-        ctx.drawText(tr, Fonts.t(name), x, y, Friends.isFriend(e) ? 0xFF3DDC97 : 0xFFFFFFFF, shadow.get());
-        x += Fonts.w(tr, name) + 4;
-        if (hp != null) { ctx.drawText(tr, Fonts.t(hp), x, y, hpColor, shadow.get()); x += Fonts.w(tr, hp) + 4; }
-        if (ds != null) ctx.drawText(tr, Fonts.t(ds), x, y, 0xFF9A9AA6, shadow.get());
+        Draw.text(ctx, tr, name, x, y, Friends.isFriend(e) ? (0xFF000000 | targets.friendRgb()) : 0xFFFFFFFF, shadow.get());
+        x += Draw.width(tr, name) + 4;
+        if (hp != null) { Draw.text(ctx, tr, hp, x, y, hpColor, shadow.get()); x += Draw.width(tr, hp) + 4; }
+        if (ds != null) Draw.text(ctx, tr, ds, x, y, 0xFF9A9AA6, shadow.get());
 
         if (e instanceof LivingEntity le) drawGear(ctx, tr, le, y);
         m.pop();
@@ -159,34 +160,52 @@ public class Nametags extends Module {
                 m.scale(es, es, 1f);
                 for (int k = 0; k < lines.size(); k++) {
                     Line ln = lines.get(k);
-                    ctx.drawText(tr, Fonts.t(ln.text()), -Fonts.w(tr, ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
+                    Draw.text(ctx, tr, ln.text(), -Draw.width(tr, ln.text()) / 2, -(k + 1) * 9, ln.color(), shadow.get());
                 }
                 m.pop();
             }
         }
     }
 
+    private static final List<String> PRIORITY = List.of("protection", "sharpness", "power", "unbreaking", "mending",
+            "efficiency", "fortune", "looting", "feather_falling", "thorns");
+
+    private static String abbreviate(String id) {
+        String s = SHORT.get(id);
+        if (s != null) return s;
+        String w = id.contains("_") ? id.substring(0, id.indexOf('_')) : id;
+        return w.isEmpty() ? "?" : Character.toUpperCase(w.charAt(0)) + w.substring(1, Math.min(4, w.length()));
+    }
+
     private List<Line> enchantLines(ItemStack st) {
-        List<Line> out = new ArrayList<>();
+        record E(String id, int lvl, int max, String full) {}
+        List<E> all = new ArrayList<>();
         ItemEnchantmentsComponent comp = EnchantmentHelper.getEnchantments(st);
         for (Object2IntMap.Entry<RegistryEntry<Enchantment>> en : comp.getEnchantmentEntries()) {
             RegistryEntry<Enchantment> re = en.getKey();
-            int lvl = en.getIntValue();
-            int max = re.value().getMaxLevel();
             String id = re.getKey().map(k -> k.getValue().getPath()).orElse("unknown");
+            all.add(new E(id, en.getIntValue(), re.value().getMaxLevel(), Enchantment.getName(re, en.getIntValue()).getString()));
+        }
+        // most important enchants first, then alphabetical
+        all.sort(Comparator.comparingInt((E e) -> { int i = PRIORITY.indexOf(e.id()); return i < 0 ? 100 : i; }).thenComparing(E::id));
 
+        List<Line> out = new ArrayList<>();
+        int limit = maxEnchants.getInt();
+        for (E e : all) {
+            if (out.size() >= limit) break;
             String text;
             if (enchantNames.is("Full")) {
-                text = Enchantment.getName(re, lvl).getString();
+                text = e.full();
             } else {
-                String base = SHORT.getOrDefault(id, id.isEmpty() ? "?" : Character.toUpperCase(id.charAt(0)) + id.substring(1, Math.min(4, id.length())));
-                text = max > 1 ? base + lvl : base;
+                String base = abbreviate(e.id());
+                boolean tiny = enchantNames.is("Tiny");
+                if (tiny) base = base.length() > 1 && Character.isUpperCase(base.charAt(1)) ? base.substring(0, 2) : base.substring(0, 1);
+                text = e.max() > 1 ? base + (tiny ? "" : " ") + e.lvl() : base;
             }
-            int color = id.endsWith("_curse") ? 0xFFFF5555 : (lvl >= max ? 0xFFFFAA00 : 0xFFFFFFFF);
+            int color = e.id().endsWith("_curse") ? 0xFFFF5555 : (e.lvl() >= e.max() ? 0xFFFFAA00 : 0xFFFFFFFF);
             out.add(new Line(text, color));
-            if (out.size() >= 8) break;
         }
-        out.sort(Comparator.comparing(Line::text));
+        if (all.size() > out.size()) out.add(new Line("+" + (all.size() - out.size()), 0xFF9A9AA6));
         return out;
     }
 }

@@ -36,4 +36,8 @@ public final class Theme {
     public static boolean particles() { return t() == null || t().particles.get(); }
     public static boolean glow() { return t() == null || t().glow.get(); }
     public static boolean shadows() { return t() == null || t().shadows.get(); }
+    public static boolean uiSounds() { return t() == null || t().uiSounds.get(); }
+    public static String closeEffect() { return t() == null ? "Burst" : t().closeEffect.get(); }
+    public static boolean customFont() { return t() == null || t().font.is("Custom"); }
+    public static int fontOffset() { return t() == null ? 0 : t().fontOffset.getInt(); }
 }

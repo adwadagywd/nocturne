@@ -1,6 +1,5 @@
 package dev.nocturne.module.impl;
 
-import dev.nocturne.gui.Fonts;
 import dev.nocturne.gui.Draw;
 import dev.nocturne.gui.Theme;
 import dev.nocturne.module.Category;
@@ -38,7 +37,7 @@ public class HudModule extends Module {
         if (watermark.get()) {
             String a = "NOCTURNE", b = mc.getCurrentFps() + " fps";
             int aw = Draw.boldWidth(tr, a);
-            int w = aw + Fonts.w(tr, b) + 32;
+            int w = aw + Draw.width(tr, b) + 32;
             Draw.shadow(ctx, 6, 6, w, 18, 7);
             Draw.round(ctx, 6, 6, w, 18, 7, 0xD00B0B0F);
             Draw.round(ctx, 13, 12, 6, 6, 3, color(0));
@@ -62,7 +61,7 @@ public class HudModule extends Module {
         }
         if (!info.isEmpty()) {
             int w = 0;
-            for (String s : info) w = Math.max(w, Fonts.w(tr, s));
+            for (String s : info) w = Math.max(w, Draw.width(tr, s));
             int h = info.size() * 11 + 6;
             Draw.round(ctx, 6, y0, w + 14, h, 6, 0xB00B0B0F);
             Draw.round(ctx, 6, y0 + 4, 2, h - 8, 1, color(0));
@@ -72,11 +71,11 @@ public class HudModule extends Module {
         if (list.get()) {
             List<Module> on = new ArrayList<>();
             for (Module m : ModuleManager.ALL) if (m.isEnabled() && m != this) on.add(m);
-            on.sort(Comparator.comparingInt((Module m) -> -Fonts.w(tr, m.name)));
+            on.sort(Comparator.comparingInt((Module m) -> -Draw.width(tr, m.name)));
             int sw = mc.getWindow().getScaledWidth();
             int y = 6, i = 0;
             for (Module m : on) {
-                int w = Fonts.w(tr, m.name) + 14;
+                int w = Draw.width(tr, m.name) + 14;
                 int x = sw - w - 6;
                 Draw.round(ctx, x, y, w, 14, 5, 0xC00B0B0F);
                 Draw.round(ctx, sw - 10, y + 3, 2, 8, 1, color(i));

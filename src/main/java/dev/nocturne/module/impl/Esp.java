@@ -1,7 +1,8 @@
 package dev.nocturne.module.impl;
 
-import dev.nocturne.module.*;
+import dev.nocturne.module.Category;
 import dev.nocturne.module.Module;
+import dev.nocturne.module.TargetSettings;
 import dev.nocturne.setting.*;
 import dev.nocturne.util.RenderUtil;
 import net.minecraft.client.render.BufferBuilder;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Esp extends Module {
-    private final ModeSetting mode = add(new ModeSetting("Mode", "Box", "Box", "Filled", "Both"));
+    private final ModeSetting mode = add(new ModeSetting("Mode", "Box", "Box", "Corners", "Filled", "Both"));
     private final NumSetting range = add(new NumSetting("Range", 128, 8, 512, 1));
     private final NumSetting width = add(new NumSetting("Line width", 2, 0.5, 6, 0.5));
     private final NumSetting fillAlpha = add(new NumSetting("Fill alpha", 0.2, 0.05, 0.8, 0.05));
@@ -20,7 +21,7 @@ public class Esp extends Module {
 
     public Esp() {
         super("ESP", "Boxes around entities, visible through walls", Category.RENDER);
-        fillAlpha.showIf(() -> !mode.is("Box"));
+        fillAlpha.showIf(() -> mode.is("Filled") || mode.is("Both"));
     }
 
     @Override
@@ -31,8 +32,12 @@ public class Esp extends Module {
             if (targets.test(e) && mc.player.distanceTo(e) <= range.get()) list.add(e);
         if (list.isEmpty()) return;
 
+        boolean fill = mode.is("Filled") || mode.is("Both");
+        boolean box = mode.is("Box") || mode.is("Both");
+        boolean corners = mode.is("Corners");
+
         RenderUtil.setup(width.getFloat());
-        if (!mode.is("Box")) {
+        if (fill) {
             BufferBuilder b = RenderUtil.begin(VertexFormat.DrawMode.QUADS);
             for (Entity e : list) {
                 int rgb = targets.color(e, mc.player.distanceTo(e), range.get());
@@ -40,11 +45,12 @@ public class Esp extends Module {
             }
             RenderUtil.finish(b);
         }
-        if (!mode.is("Filled")) {
+        if (box || corners) {
             BufferBuilder b = RenderUtil.begin(VertexFormat.DrawMode.DEBUG_LINES);
             for (Entity e : list) {
                 int rgb = targets.color(e, mc.player.distanceTo(e), range.get());
-                RenderUtil.boxOutline(b, RenderUtil.lerpedBox(e), RenderUtil.argb(rgb, 1f));
+                if (corners) RenderUtil.boxCorners(b, RenderUtil.lerpedBox(e), RenderUtil.argb(rgb, 1f));
+                else RenderUtil.boxOutline(b, RenderUtil.lerpedBox(e), RenderUtil.argb(rgb, 1f));
             }
             RenderUtil.finish(b);
         }

@@ -47,6 +47,12 @@ public final class ConfigManager {
     }
 
     private static void apply(Map<String, Map<String, Object>> root) {
+        boolean old = dev.nocturne.module.impl.Notifications.suppress;
+        dev.nocturne.module.impl.Notifications.suppress = true;
+        try { applyInner(root); } finally { dev.nocturne.module.impl.Notifications.suppress = old; }
+    }
+
+    private static void applyInner(Map<String, Map<String, Object>> root) {
         for (Module m : ModuleManager.ALL) {
             Map<String, Object> o = root.get(m.name);
             if (o == null) continue;

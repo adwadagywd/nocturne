@@ -4,6 +4,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 /** 2D toolkit: global alpha, anti-aliased rounded rects (drawn in real screen pixels), gradients, shadows. */
 public final class Draw {
@@ -108,6 +110,27 @@ public final class Draw {
         m.pop();
     }
 
+    /** circle outline (or an arc: frac = 0..1 of the full turn, starting at the top) drawn in real screen pixels */
+    public static void ring(DrawContext ctx, double cx, double cy, double radius, double thick, int color, float frac) {
+        int c = col(color);
+        if ((c >>> 24) == 0 || frac <= 0f || radius <= 0) return;
+        double s = MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double rp = radius * s;
+        int t = Math.max(1, (int) Math.round(thick * s));
+        int n = (int) Math.max(16, Math.min(720, Math.ceil(2 * Math.PI * rp / Math.max(1.0, t * 0.85))));
+        int steps = (int) Math.ceil(n * Math.min(1f, frac));
+        MatrixStack m = ctx.getMatrices();
+        m.push();
+        m.scale((float) (1.0 / s), (float) (1.0 / s), 1f);
+        for (int i = 0; i < steps; i++) {
+            double a = -Math.PI / 2 + i * (Math.PI * 2 / n);
+            int px = (int) Math.round(cx * s + Math.cos(a) * rp - t / 2.0);
+            int py = (int) Math.round(cy * s + Math.sin(a) * rp - t / 2.0);
+            ctx.fill(px, py, px + t, py + t, c);
+        }
+        m.pop();
+    }
+
     /** 1px (GUI px) rounded outline made of an outer + inner rounded rect */
     public static void panel(DrawContext ctx, int x, int y, int w, int h, float r, int fill, int border) {
         round(ctx, x, y, w, h, r, border);
@@ -127,16 +150,36 @@ public final class Draw {
     public static void text(DrawContext ctx, TextRenderer tr, String s, int x, int y, int color, boolean shadow) {
         int c = col(color);
         if ((c >>> 24) < 8) return; // vanilla draws near-transparent text fully opaque, so skip it
-        ctx.drawText(tr, Fonts.t(s), x, y, c, shadow);
+        ctx.drawText(tr, Fonts.text(tr, s), x, y + Fonts.dy(tr), c, shadow);
     }
 
     public static void bold(DrawContext ctx, TextRenderer tr, String s, int x, int y, int color, boolean shadow) {
         int c = col(color);
         if ((c >>> 24) < 8) return;
-        ctx.drawText(tr, Fonts.b(s), x, y, c, shadow);
+        ctx.drawText(tr, Fonts.bold(tr, s), x, y + Fonts.dy(tr), c, shadow);
+    }
+
+    public static int width(TextRenderer tr, String s) {
+        return tr.getWidth(Fonts.text(tr, s));
     }
 
     public static int boldWidth(TextRenderer tr, String s) {
-        return Fonts.bw(tr, s);
+        return tr.getWidth(Fonts.bold(tr, s));
+    }
+
+    /** cuts the end of the text so it fits, adding ".." */
+    public static String trim(TextRenderer tr, String s, int w) {
+        if (width(tr, s) <= w) return s;
+        String t = s;
+        while (!t.isEmpty() && width(tr, t + "..") > w) t = t.substring(0, t.length() - 1);
+        return t + "..";
+    }
+
+    /** keeps the END of the text (used while typing in a text box) */
+    public static String trimTail(TextRenderer tr, String s, int w) {
+        if (width(tr, s) <= w) return s;
+        String t = s;
+        while (!t.isEmpty() && width(tr, t) > w) t = t.substring(1);
+        return t;
     }
 }

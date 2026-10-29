@@ -12,7 +12,7 @@ public class Zoom extends Module {
     private float cur;
     private long last;
 
-    public Zoom() { super("Zoom", "Zooms in (bind it to a key for hold-style zoom)", Category.RENDER); }
+    public Zoom() { super("Zoom", "Zooms in (bind it to a key for hold-style zoom)", Category.VISUALS); }
 
     @Override
     protected void onEnable() {

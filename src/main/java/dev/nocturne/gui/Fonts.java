@@ -1,57 +1,46 @@
 package dev.nocturne.gui;
 
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 
-/**
- * Nocturne typography: Inter (the closest free match to Apple's SF Pro, which Catlean uses).
- * Regular for body text, SemiBold for headings. Both fall back to the vanilla font for missing glyphs.
- */
+/** Picks the UI font (bundled Instrument Sans) or falls back to the vanilla one. */
 public final class Fonts {
-    public static final Identifier REGULAR = Identifier.of("nocturne", "inter");
-    public static final Identifier BOLD = Identifier.of("nocturne", "inter_bold");
-
+    public static final Identifier REGULAR = Identifier.of("nocturne", "ui");
+    public static final Identifier BOLD = Identifier.of("nocturne", "ui_bold");
     private static final Style REGULAR_STYLE = Style.EMPTY.withFont(REGULAR);
     private static final Style BOLD_STYLE = Style.EMPTY.withFont(BOLD);
 
+    private static boolean ok;
+    private static long checkedAt;
+
     private Fonts() {}
 
-    /** regular text in the Nocturne font */
-    public static MutableText t(String s) {
-        return Text.literal(s).setStyle(REGULAR_STYLE);
+    /** true when the custom font is selected AND actually loaded (a missing font draws equal-width boxes) */
+    public static boolean custom(TextRenderer tr) {
+        if (!Theme.customFont()) return false;
+        if (ok) return true;
+        long now = System.currentTimeMillis();
+        if (now - checkedAt < 2000) return false;
+        checkedAt = now;
+        int narrow = tr.getWidth(Text.literal("iiiiiiiiii").setStyle(REGULAR_STYLE));
+        int wide = tr.getWidth(Text.literal("WWWWWWWWWW").setStyle(REGULAR_STYLE));
+        ok = narrow > 0 && narrow < wide;
+        return ok;
     }
 
-    /** heading text in the Nocturne font (SemiBold) */
-    public static MutableText b(String s) {
-        return Text.literal(s).setStyle(BOLD_STYLE);
+    public static Text text(TextRenderer tr, String s) {
+        return custom(tr) ? Text.literal(s).setStyle(REGULAR_STYLE) : Text.literal(s);
     }
 
-    public static int w(TextRenderer tr, String s) {
-        return tr.getWidth(t(s));
+    public static Text bold(TextRenderer tr, String s) {
+        return custom(tr) ? Text.literal(s).setStyle(BOLD_STYLE) : Text.literal(s).formatted(Formatting.BOLD);
     }
 
-    public static int bw(TextRenderer tr, String s) {
-        return tr.getWidth(b(s));
-    }
-
-    public static String trim(TextRenderer tr, String s, int width) {
-        return trim(tr, s, width, false);
-    }
-
-    /** like TextRenderer.trimToWidth, but measured in the Nocturne font; backwards keeps the end of the string */
-    public static String trim(TextRenderer tr, String s, int width, boolean backwards) {
-        if (w(tr, s) <= width) return s;
-        int len = s.length();
-        if (backwards) {
-            int start = 0;
-            while (start < len && w(tr, s.substring(start)) > width) start++;
-            return s.substring(start);
-        }
-        int end = len;
-        while (end > 0 && w(tr, s.substring(0, end)) > width) end--;
-        return s.substring(0, end);
+    /** vertical tuning for the custom font (Theme -> Font Y offset) */
+    public static int dy(TextRenderer tr) {
+        return custom(tr) ? Theme.fontOffset() : 0;
     }
 }
